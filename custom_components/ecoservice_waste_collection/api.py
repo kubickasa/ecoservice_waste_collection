@@ -22,6 +22,11 @@ class EcoserviceNotFound(EcoserviceApiError):
     """Requested source value does not exist."""
 
 
+def powerbi_string_literal(value: str) -> str:
+    """Encode text using the Power BI semantic-query literal format."""
+    return f"'{value.replace(chr(39), chr(39) * 2)}'"
+
+
 @dataclass(slots=True)
 class _Metadata:
     cluster: str
@@ -134,7 +139,7 @@ class EcoserviceApi:
         selects = [{"Column":{"Expression":{"SourceRef":{"Source":source}},"Property":p},"Name":f"{source}.{p}"} for p in columns]
         where = []
         for prop, value in (filters or {}).items():
-            where.append({"Condition":{"In":{"Expressions":[{"Column":{"Expression":{"SourceRef":{"Source":source}},"Property":prop}}],"Values":[[{"Literal":{"Value":json.dumps(value, ensure_ascii=False)}}]]}}})
+            where.append({"Condition":{"In":{"Expressions":[{"Column":{"Expression":{"SourceRef":{"Source":source}},"Property":prop}}],"Values":[[{"Literal":{"Value":powerbi_string_literal(value)}}]]}}})
         query: dict[str, Any] = {"Version":2,"From":[{"Name":source,"Entity":meta.entity,"Type":0}],"Select":selects}
         if where: query["Where"] = where
         payload = {"version":"1.0.0","queries":[{"Query":{"Commands":[{"SemanticQueryDataShapeCommand":{"Query":query,"Binding":{"DataReduction":{"DataVolume":6,"Primary":{"Window":{"Count":count}}},"Primary":{"Groupings":[{"Projections":list(range(len(columns))),"Subtotal":1}]}},"ExecutionMetricsKind":1}}]}}],"cancelQueries":[],"modelId":meta.dataset_id}
