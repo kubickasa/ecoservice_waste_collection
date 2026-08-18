@@ -73,7 +73,11 @@ class EcoserviceApi:
         headers = self._headers(resource_key)
         models, schema = await asyncio.gather(
             self._request("GET", f"{api_cluster}/public/reports/{resource_key}/modelsAndExploration?preferReadOnlySession=true", headers=headers),
-            self._request("GET", f"{api_cluster}/public/reports/conceptualschema", headers=headers),
+            self._request(
+                "GET",
+                f"{api_cluster}/public/reports/{resource_key}/conceptualschema",
+                headers=headers,
+            ),
         )
         dataset_id = str(models["models"][0]["id"])
         fields = self._discover_fields(schema)
