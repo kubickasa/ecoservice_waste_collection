@@ -1,0 +1,4 @@
+refresh:
+  name: Refresh schedules
+  description: Requests an immediate schedule refresh for configured entries.
+
