@@ -166,7 +166,7 @@ class EcoserviceApi:
         rows = await self._query([meta.address], {meta.municipality: municipality})
         values = sorted({str(r[0]).strip() for r in rows if r[0]})
         if search: values = [v for v in values if search.casefold() in v.casefold()]
-        return values[:500]
+        return values
 
     async def containers(self, municipality: str, address: str) -> list[Container]:
         meta = await self._load_metadata()

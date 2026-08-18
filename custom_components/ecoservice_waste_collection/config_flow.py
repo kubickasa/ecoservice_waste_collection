@@ -35,6 +35,7 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self.values: dict[str, Any] = {}
         self.api: EcoserviceApi | None = None
+        self._addresses: list[str] = []
         self._containers = []
         self._schedules = {}
 
@@ -50,16 +51,32 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_address(self, user_input=None) -> ConfigFlowResult:
         assert self.api
         errors = {}
-        if user_input and CONF_ADDRESS in user_input:
-            address = user_input[CONF_ADDRESS].strip()
+        if not self._addresses:
             try:
-                addresses = await self.api.addresses(self.values[CONF_MUNICIPALITY], address)
-                if address not in addresses: raise EcoserviceNotFound
+                self._addresses = await self.api.addresses(self.values[CONF_MUNICIPALITY])
+            except EcoserviceApiError:
+                errors["base"] = "cannot_connect"
+        if user_input and CONF_ADDRESS in user_input:
+            address = user_input[CONF_ADDRESS]
+            if address in self._addresses:
                 self.values[CONF_ADDRESS] = address
                 return await self.async_step_containers()
-            except EcoserviceNotFound: errors["base"] = "invalid_address"
-            except EcoserviceApiError: errors["base"] = "cannot_connect"
-        return self.async_show_form(step_id="address", data_schema=vol.Schema({vol.Required(CONF_ADDRESS): TextSelector(TextSelectorConfig(type="text", autocomplete="street-address"))}), errors=errors, description_placeholders={"municipality":self.values[CONF_MUNICIPALITY]})
+            errors["base"] = "invalid_address"
+        return self.async_show_form(
+            step_id="address",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_ADDRESS): SelectSelector(
+                        SelectSelectorConfig(
+                            options=self._addresses,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    )
+                }
+            ),
+            errors=errors,
+            description_placeholders={"municipality": self.values[CONF_MUNICIPALITY]},
+        )
 
     async def async_step_containers(self, user_input=None) -> ConfigFlowResult:
         assert self.api

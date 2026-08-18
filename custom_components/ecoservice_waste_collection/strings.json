@@ -2,7 +2,7 @@
   "title": "Waste Collection Ecoservice Lithuania",
   "config": {"step": {
     "user": {"title":"Savivaldybė","description":"Pasirinkite savivaldybę.","data":{"municipality":"Savivaldybė"}},
-    "address": {"title":"Adresas","description":"Įveskite tikslų adresą savivaldybėje {municipality}. Sąrašas tikrinamas serveryje.","data":{"address":"Adresas"}},
+    "address": {"title":"Adresas","description":"Pradėkite rašyti ir pasirinkite adresą iš savivaldybės {municipality} sąrašo.","data":{"address":"Adresas"}},
     "containers": {"title":"Konteineriai","description":"Pasirinkite vieną ar kelis konteinerius.","data":{"containers":"Konteineriai"}},
     "confirm": {"title":"Patvirtinimas","description":"Savivaldybė: {municipality}\nAdresas: {address}\nKonteineriai ir artimiausios datos: {summary}","data":{"vasa_enabled":"Prisijungti prie VASA savitarnos"}},
     "vasa": {"title":"VASA savitarna","description":"Prisijungimas tikrinamas VASA serveryje. Duomenys saugomi tik jūsų Home Assistant konfigūracijoje.","data":{"vasa_username":"Prisijungimo vardas (el. paštas)","vasa_password":"Slaptažodis"}}
