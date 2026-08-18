@@ -29,13 +29,35 @@ Nukopijuokite katalogą `custom_components/ecoservice_waste_collection` į savo 
 
 ## Konfigūravimas
 
-Vedlys vykdomas per **Settings → Devices & services → Add integration**:
+### Integracijos pridėjimas Home Assistant
 
-1. Pasirinkite savivaldybę iš viešos „Ecoservice“ ataskaitos.
-2. Įrašykite tikslų adresą; jis patikrinamas ataskaitoje.
-3. Pasirinkite vieną ar kelis su adresu susietus konteinerius.
-4. Patikrinkite artimiausių išvežimų santrauką.
-5. Jei reikia faktinių svorių, pažymėkite **Prisijungti prie VASA savitarnos** ir įveskite VASA el. paštą bei slaptažodį.
+1. Atidarykite **Settings** ir pasirinkite **Devices & services**.
+
+   ![Home Assistant Settings – Devices & services](docs/images/setup/01-settings-devices-services.png)
+
+2. Lango apačioje paspauskite **+ Add integration**.
+
+   ![Home Assistant Add integration mygtukas](docs/images/setup/02-add-integration.png)
+
+3. Paieškoje įrašykite `Ecoservice` ir pasirinkite **Waste Collection Ecoservice Lithuania**.
+
+   ![Ecoservice integracijos paieška](docs/images/setup/03-search-ecoservice.png)
+
+4. Pasirinkite savivaldybę iš viešos „Ecoservice“ ataskaitos ir tęskite.
+
+   ![Savivaldybės pasirinkimas](docs/images/setup/04-select-municipality.png)
+
+5. Adreso dropdown laukelyje pradėkite rašyti gatvę ar adresą ir pasirinkite tikslų rezultatą iš sąrašo. Rodomi tik pasirinktos savivaldybės adresai.
+
+   ![Adreso įvedimas](docs/images/setup/05-enter-address.png)
+
+6. Paspauskite **Submit**. Pasirinktas adresas bus patikrintas viešoje ataskaitoje.
+
+   ![Adreso patvirtinimas](docs/images/setup/06-submit-address.png)
+
+7. Pasirinkite vieną ar kelis su adresu susietus konteinerius.
+8. Patikrinkite artimiausių išvežimų santrauką.
+9. Jei reikia faktinių svorių, pažymėkite **Prisijungti prie VASA savitarnos** ir įveskite VASA el. paštą bei slaptažodį.
 
 Nustatymus vėliau galima keisti integracijos **Configure** lange nešalinant integracijos.
 
