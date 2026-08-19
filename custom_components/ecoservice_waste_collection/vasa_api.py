@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import re
+import unicodedata
 from collections.abc import Iterable
 from typing import Any
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
 
 from .const import VASA_API_URL
-from .models import CollectionRecord, normalize_date
+from .models import CollectionRecord, PayableInvoice, normalize_date
 
 
 class VasaApiError(Exception):
@@ -49,6 +51,92 @@ def _normalized_values(row: dict[str, Any]) -> dict[str, Any]:
     if isinstance(values, dict):
         return {str(key).casefold(): value for key, value in values.items()}
     return {}
+
+
+def _normalized_key(value: str) -> str:
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFKD", value.casefold())
+        if character.isalnum() and not unicodedata.combining(character)
+    )
+
+
+def _parse_amount(value: Any) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = re.sub(r"[^0-9,.\-]", "", str(value))
+    if not text:
+        return None
+    if "," in text and "." in text:
+        if text.rfind(",") > text.rfind("."):
+            text = text.replace(".", "").replace(",", ".")
+        else:
+            text = text.replace(",", "")
+    else:
+        text = text.replace(",", ".")
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def parse_payable_invoices(payload: Any) -> tuple[PayableInvoice, ...]:
+    """Parse VASA's dynamic payable-invoices table."""
+    invoices: set[PayableInvoice] = set()
+    column_labels: dict[str, str] = {}
+    for table in _iter_dicts(_unwrap(payload)):
+        columns = table.get("columns")
+        if not isinstance(columns, list):
+            continue
+        for column in columns:
+            if not isinstance(column, dict):
+                continue
+            name = column.get("name")
+            display_name = column.get("displayName")
+            if name and display_name:
+                column_labels[_normalized_key(str(name))] = _normalized_key(
+                    str(display_name)
+                )
+    for row in _iter_dicts(_unwrap(payload)):
+        values = _normalized_values(row)
+        normalized = {_normalized_key(key): value for key, value in values.items()}
+        normalized.update(
+            {
+                column_labels[key]: value
+                for key, value in tuple(normalized.items())
+                if key in column_labels
+            }
+        )
+        invoice_number = next(
+            (
+                value
+                for key, value in normalized.items()
+                if (
+                    ("saskait" in key or "invoice" in key)
+                    and any(marker in key for marker in ("nr", "number", "no"))
+                )
+            ),
+            None,
+        )
+        raw_amount = next(
+            (
+                value
+                for key, value in normalized.items()
+                if (
+                    "moketin" in key
+                    or "payable" in key
+                    or "sumtopay" in key
+                    or "amounttopay" in key
+                )
+            ),
+            None,
+        )
+        amount = _parse_amount(raw_amount)
+        if invoice_number not in (None, "") and amount is not None:
+            invoices.add(PayableInvoice(str(invoice_number).strip(), amount))
+    return tuple(sorted(invoices, key=lambda item: item.invoice_number))
 
 
 def parse_collection_records(payload: Any, inventory: str) -> tuple[CollectionRecord, ...]:
@@ -185,3 +273,12 @@ class VasaApi:
             inventory: tuple(sorted(set(records), key=lambda item: item.date, reverse=True))
             for inventory, records in collected.items()
         }
+
+    async def payable_invoices(self) -> tuple[PayableInvoice, ...]:
+        if not self._token:
+            await self.authenticate()
+        payload = await self._json(
+            "GET",
+            "/api/services/app/InvoiceAndPayment/GetPayableInvoicesList",
+        )
+        return parse_payable_invoices(payload)

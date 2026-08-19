@@ -1,7 +1,16 @@
+import asyncio
 from datetime import date
 
-from custom_components.ecoservice_waste_collection.models import CollectionRecord, yearly_serviced_weight
-from custom_components.ecoservice_waste_collection.vasa_api import parse_collection_records
+from custom_components.ecoservice_waste_collection.models import (
+    CollectionRecord,
+    latest_serviced_record,
+    yearly_serviced_weight,
+)
+from custom_components.ecoservice_waste_collection.vasa_api import (
+    VasaApi,
+    parse_collection_records,
+    parse_payable_invoices,
+)
 
 
 def test_parse_anonymized_vasa_history():
@@ -23,3 +32,67 @@ def test_yearly_weight_counts_only_successful_services():
         CollectionRecord(date(2026, 3, 2), "00-P-000001", "Aptarnautas", None, None),
     )
     assert yearly_serviced_weight(records, 2026) == 12.5
+    assert latest_serviced_record(records) == records[3]
+
+
+def test_parse_vasa_payable_invoices_and_total():
+    payload = {
+        "result": {
+            "columns": [
+                {"name": "InvoiceCode", "displayName": "Sąskaitos nr."},
+                {"name": "Debt", "displayName": "Mokėtina suma"},
+            ],
+            "rows": [
+                {
+                    "allColumnsValues": {
+                        "Sąskaitos nr.": "MP27527263",
+                        "Mokėtina suma": "50,08 €",
+                    }
+                },
+                {
+                    "allColumnsValues": {
+                        "InvoiceCode": "MP27527264",
+                        "Debt": 12.5,
+                    }
+                },
+            ]
+        }
+    }
+
+    invoices = parse_payable_invoices(payload)
+
+    assert [(item.invoice_number, item.amount) for item in invoices] == [
+        ("MP27527263", 50.08),
+        ("MP27527264", 12.5),
+    ]
+    assert round(sum(item.amount for item in invoices), 2) == 62.58
+
+
+def test_payable_invoices_uses_vasa_billing_endpoint():
+    requested = []
+
+    class StubApi(VasaApi):
+        async def _json(self, method, path, **kwargs):
+            requested.append((method, path))
+            return {
+                "result": {
+                    "rows": [
+                        {
+                            "allColumnsValues": {
+                                "InvoiceNumber": "MP27527263",
+                                "AmountToPay": "50,08",
+                            }
+                        }
+                    ]
+                }
+            }
+
+    api = StubApi(None, "user", "password")
+    api._token = "token"
+
+    invoices = asyncio.run(api.payable_invoices())
+
+    assert requested == [
+        ("GET", "/api/services/app/InvoiceAndPayment/GetPayableInvoicesList")
+    ]
+    assert invoices[0].amount == 50.08

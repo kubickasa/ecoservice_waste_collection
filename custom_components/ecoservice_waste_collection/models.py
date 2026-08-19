@@ -94,6 +94,12 @@ class CollectionRecord:
     weight_kg: float | None
 
 
+@dataclass(frozen=True, slots=True)
+class PayableInvoice:
+    invoice_number: str
+    amount: float
+
+
 def next_collection(dates: tuple[date, ...], today: date) -> date | None:
     return next((item for item in dates if item >= today), None)
 
@@ -111,4 +117,19 @@ def yearly_serviced_weight(records: Iterable[CollectionRecord], year: int) -> fl
         if item.date.year == year
         and item.servicing.casefold().strip() == "aptarnautas"
         and item.weight_kg is not None
+    )
+
+
+def latest_serviced_record(
+    records: Iterable[CollectionRecord],
+) -> CollectionRecord | None:
+    """Return the latest successfully serviced collection record."""
+    return max(
+        (
+            item
+            for item in records
+            if item.servicing.casefold().strip() == "aptarnautas"
+        ),
+        key=lambda item: item.date,
+        default=None,
     )

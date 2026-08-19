@@ -195,6 +195,10 @@ class EcoserviceOptionsFlow(OptionsFlow):
     def __init__(self, entry) -> None: self.entry = entry
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            self.hass.config_entries.async_update_entry(self.entry, data={**self.entry.data, **user_input})
+            updated = {**self.entry.data, **user_input}
+            if not updated.get(CONF_VASA_ENABLED):
+                updated.pop(CONF_VASA_USERNAME, None)
+                updated.pop(CONF_VASA_PASSWORD, None)
+            self.hass.config_entries.async_update_entry(self.entry, data=updated)
             return self.async_create_entry(title="", data={})
         return self.async_show_form(step_id="init", data_schema=vol.Schema({vol.Required(CONF_MUNICIPALITY, default=self.entry.data[CONF_MUNICIPALITY]): str, vol.Required(CONF_ADDRESS, default=self.entry.data[CONF_ADDRESS]): str, vol.Required(CONF_CONTAINERS, default=self.entry.data[CONF_CONTAINERS]): SelectSelector(SelectSelectorConfig(options=self.entry.data[CONF_CONTAINERS], multiple=True, custom_value=True)), vol.Optional(CONF_VASA_ENABLED, default=self.entry.data.get(CONF_VASA_ENABLED, False)): BooleanSelector(), vol.Optional(CONF_VASA_USERNAME, default=self.entry.data.get(CONF_VASA_USERNAME, "")): TextSelector(TextSelectorConfig(type=TextSelectorType.EMAIL, autocomplete="username")), vol.Optional(CONF_VASA_PASSWORD, default=self.entry.data.get(CONF_VASA_PASSWORD, "")): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD, autocomplete="current-password"))}))
