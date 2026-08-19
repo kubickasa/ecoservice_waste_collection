@@ -1,7 +1,7 @@
 {
   "domain": "ecoservice_waste_collection",
   "name": "Waste Collection Ecoservice Lithuania",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "documentation": "https://github.com/kubickasa/ecoservice_waste_collection",
   "issue_tracker": "https://github.com/kubickasa/ecoservice_waste_collection/issues",
   "codeowners": ["@kubickasa"],

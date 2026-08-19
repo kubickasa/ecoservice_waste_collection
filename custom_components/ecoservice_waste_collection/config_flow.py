@@ -19,7 +19,6 @@ from homeassistant.helpers.selector import (
 from .api import EcoserviceApi, EcoserviceApiError, EcoserviceNotFound
 from .const import (
     CONF_ADDRESS,
-    CONF_ADDRESS_SEARCH,
     CONF_CONTAINERS,
     CONF_MUNICIPALITY,
     CONF_VASA_ENABLED,
@@ -38,7 +37,6 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
         self.api: EcoserviceApi | None = None
         self._municipalities: list[str] = []
         self._addresses: list[str] = []
-        self._address_matches: list[str] = []
         self._containers = []
         self._schedules = {}
 
@@ -63,8 +61,10 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
                 None,
             )
             if municipality is not None:
+                if self.values.get(CONF_MUNICIPALITY) != municipality:
+                    self._addresses = []
                 self.values[CONF_MUNICIPALITY] = municipality
-                return await self.async_step_address_search()
+                return await self.async_step_address()
             if "base" not in errors:
                 errors["base"] = "invalid_municipality"
 
@@ -89,57 +89,48 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_address_search(self, user_input=None) -> ConfigFlowResult:
+    async def async_step_address(self, user_input=None) -> ConfigFlowResult:
         assert self.api
         errors = {}
         if not self._addresses:
             try:
-                self._addresses = await self.api.addresses(self.values[CONF_MUNICIPALITY])
+                self._addresses = await self.api.addresses(
+                    self.values[CONF_MUNICIPALITY]
+                )
             except EcoserviceApiError:
                 errors["base"] = "cannot_connect"
-        if user_input is not None:
-            query_parts = user_input[CONF_ADDRESS_SEARCH].strip().casefold().split()
-            self._address_matches = (
-                [
-                    address
-                    for address in self._addresses
-                    if all(part in address.casefold() for part in query_parts)
-                ][:100]
-                if query_parts
-                else []
-            )
-            if self._address_matches:
-                return await self.async_step_address()
-            errors["base"] = "address_not_found"
-        return self.async_show_form(
-            step_id="address_search",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_ADDRESS_SEARCH): TextSelector(
-                        TextSelectorConfig(type=TextSelectorType.TEXT)
-                    )
-                }
-            ),
-            errors=errors,
-            description_placeholders={"municipality": self.values[CONF_MUNICIPALITY]},
-        )
 
-    async def async_step_address(self, user_input=None) -> ConfigFlowResult:
-        errors = {}
-        if user_input and CONF_ADDRESS in user_input:
-            address = user_input[CONF_ADDRESS]
-            if address in self._address_matches:
+        submitted_address = ""
+        if user_input is not None and CONF_ADDRESS in user_input:
+            submitted_address = user_input[CONF_ADDRESS].strip()
+            address = next(
+                (
+                    option
+                    for option in self._addresses
+                    if option.casefold() == submitted_address.casefold()
+                ),
+                None,
+            )
+            if address is not None:
                 self.values[CONF_ADDRESS] = address
                 return await self.async_step_containers()
-            errors["base"] = "invalid_address"
+            if "base" not in errors:
+                errors["base"] = "invalid_address"
+
+        address_field = (
+            vol.Required(CONF_ADDRESS, default=submitted_address)
+            if submitted_address
+            else vol.Required(CONF_ADDRESS)
+        )
         return self.async_show_form(
             step_id="address",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_ADDRESS): SelectSelector(
+                    address_field: SelectSelector(
                         SelectSelectorConfig(
-                            options=self._address_matches,
+                            options=self._addresses,
                             mode=SelectSelectorMode.DROPDOWN,
+                            custom_value=True,
                         )
                     )
                 }
