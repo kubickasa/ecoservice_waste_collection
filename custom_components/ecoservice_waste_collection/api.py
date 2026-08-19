@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
@@ -25,6 +26,24 @@ class EcoserviceNotFound(EcoserviceApiError):
 def powerbi_string_literal(value: str) -> str:
     """Encode text using the Power BI semantic-query literal format."""
     return f"'{value.replace(chr(39), chr(39) * 2)}'"
+
+
+def normalize_search_text(value: str) -> str:
+    """Normalize text for case- and accent-insensitive prefix matching."""
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFKD", value.casefold().strip())
+        if not unicodedata.combining(character)
+    )
+
+
+def natural_sort_key(value: str) -> tuple[tuple[int, str | int], ...]:
+    """Return an accent-insensitive key that sorts embedded numbers naturally."""
+    return tuple(
+        (1, int(part)) if part.isdigit() else (0, part)
+        for part in re.split(r"(\d+)", normalize_search_text(value))
+        if part
+    )
 
 
 @dataclass(slots=True)
@@ -173,8 +192,16 @@ class EcoserviceApi:
     async def addresses(self, municipality: str, search: str | None = None) -> list[str]:
         meta = await self._load_metadata()
         rows = await self._query([meta.address], {meta.municipality: municipality})
-        values = sorted({str(r[0]).strip() for r in rows if r[0]})
-        if search: values = [v for v in values if search.casefold() in v.casefold()]
+        values = sorted(
+            {str(r[0]).strip() for r in rows if r[0]}, key=natural_sort_key
+        )
+        if search:
+            normalized_search = normalize_search_text(search)
+            values = [
+                value
+                for value in values
+                if normalize_search_text(value).startswith(normalized_search)
+            ]
         return values
 
     async def containers(self, municipality: str, address: str) -> list[Container]:

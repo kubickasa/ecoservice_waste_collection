@@ -6,6 +6,7 @@ INTEGRATION_DIR = (
 )
 REQUIRED_STEPS = {
     "user": "municipality",
+    "address_search": "address_search",
     "address": "address",
     "containers": "containers",
     "confirm": "vasa_enabled",
@@ -14,6 +15,7 @@ REQUIRED_STEPS = {
 REQUIRED_ERRORS = {
     "cannot_connect",
     "invalid_municipality",
+    "address_not_found",
     "invalid_address",
     "container_not_found",
     "empty_schedule",

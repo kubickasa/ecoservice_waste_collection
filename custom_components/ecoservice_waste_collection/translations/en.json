@@ -9,9 +9,16 @@
           "municipality": "Municipality"
         }
       },
+      "address_search": {
+        "title": "Address search",
+        "description": "Enter the beginning of an address in {municipality}. Leave the field empty to browse the full A–Z list.",
+        "data": {
+          "address_search": "Address begins with"
+        }
+      },
       "address": {
         "title": "Select address",
-        "description": "Start typing an address in {municipality} and select a suggestion, or browse the full list without typing.",
+        "description": "Select the exact address from the A–Z results for {municipality}.",
         "data": {
           "address": "Address"
         }
@@ -42,6 +49,7 @@
     "error": {
       "cannot_connect": "Cannot connect to the public Ecoservice report.",
       "invalid_municipality": "Select a municipality from the suggested options.",
+      "address_not_found": "No addresses begin with the entered text. Refine the search or leave it empty to browse all addresses.",
       "invalid_address": "Address not found.",
       "container_not_found": "No containers found.",
       "empty_schedule": "No collection dates found for the selected containers.",
