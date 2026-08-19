@@ -20,11 +20,9 @@ from .api import (
     EcoserviceApi,
     EcoserviceApiError,
     EcoserviceNotFound,
-    normalize_search_text,
 )
 from .const import (
     CONF_ADDRESS,
-    CONF_ADDRESS_SEARCH,
     CONF_CONTAINERS,
     CONF_MUNICIPALITY,
     CONF_VASA_ENABLED,
@@ -43,7 +41,6 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
         self.api: EcoserviceApi | None = None
         self._municipalities: list[str] = []
         self._addresses: list[str] = []
-        self._address_matches: list[str] = []
         self._containers = []
         self._schedules = {}
 
@@ -70,9 +67,8 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
             if municipality is not None:
                 if self.values.get(CONF_MUNICIPALITY) != municipality:
                     self._addresses = []
-                    self._address_matches = []
                 self.values[CONF_MUNICIPALITY] = municipality
-                return await self.async_step_address_search()
+                return await self.async_step_address()
             if "base" not in errors:
                 errors["base"] = "invalid_municipality"
 
@@ -97,7 +93,7 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_address_search(self, user_input=None) -> ConfigFlowResult:
+    async def async_step_address(self, user_input=None) -> ConfigFlowResult:
         assert self.api
         errors = {}
         if not self._addresses:
@@ -108,40 +104,13 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
             except EcoserviceApiError:
                 errors["base"] = "cannot_connect"
 
-        if user_input is not None:
-            search = normalize_search_text(user_input.get(CONF_ADDRESS_SEARCH, ""))
-            self._address_matches = [
-                address
-                for address in self._addresses
-                if not search or normalize_search_text(address).startswith(search)
-            ]
-            if self._address_matches:
-                return await self.async_step_address()
-            if "base" not in errors:
-                errors["base"] = "address_not_found"
-
-        return self.async_show_form(
-            step_id="address_search",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(CONF_ADDRESS_SEARCH, default=""): TextSelector(
-                        TextSelectorConfig(type=TextSelectorType.SEARCH)
-                    )
-                }
-            ),
-            errors=errors,
-            description_placeholders={"municipality": self.values[CONF_MUNICIPALITY]},
-        )
-
-    async def async_step_address(self, user_input=None) -> ConfigFlowResult:
-        errors = {}
         submitted_address = ""
         if user_input is not None and CONF_ADDRESS in user_input:
             submitted_address = user_input[CONF_ADDRESS].strip()
             address = next(
                 (
                     option
-                    for option in self._address_matches
+                    for option in self._addresses
                     if option.casefold() == submitted_address.casefold()
                 ),
                 None,
@@ -163,8 +132,9 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
                 {
                     address_field: SelectSelector(
                         SelectSelectorConfig(
-                            options=self._address_matches,
+                            options=self._addresses,
                             mode=SelectSelectorMode.DROPDOWN,
+                            custom_value=True,
                         )
                     )
                 }

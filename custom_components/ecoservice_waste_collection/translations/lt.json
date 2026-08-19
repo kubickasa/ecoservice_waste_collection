@@ -9,16 +9,9 @@
           "municipality": "Savivaldybė"
         }
       },
-      "address_search": {
-        "title": "Adreso paieška",
-        "description": "Įrašykite adreso pradžią savivaldybėje {municipality}. Palikite lauką tuščią, jei norite naršyti visą A–Z sąrašą.",
-        "data": {
-          "address_search": "Adresas prasideda"
-        }
-      },
       "address": {
         "title": "Pasirinkite adresą",
-        "description": "Pasirinkite tikslų adresą iš A–Z rezultatų savivaldybėje {municipality}.",
+        "description": "Atidarykite adreso lauką ir įrašykite bent tris pirmuosius simbolius. Filtruoti rezultatai iškart rodomi apačioje; tuščiame lauke galite naršyti visą A–Z sąrašą savivaldybėje {municipality}.",
         "data": {
           "address": "Adresas"
         }
@@ -49,7 +42,6 @@
     "error": {
       "cannot_connect": "Nepavyko pasiekti viešos Ecoservice ataskaitos.",
       "invalid_municipality": "Pasirinkite savivaldybę iš siūlomų variantų.",
-      "address_not_found": "Nė vienas adresas neprasideda įvestu tekstu. Patikslinkite paiešką arba palikite lauką tuščią, kad matytumėte visus adresus.",
       "invalid_address": "Adresas nerastas.",
       "container_not_found": "Konteinerių nerasta.",
       "empty_schedule": "Pasirinktiems konteineriams datų nerasta.",
