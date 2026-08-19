@@ -16,6 +16,7 @@ from .models import (
     days_until,
     latest_serviced_record,
     next_collection,
+    next_collection_for_waste,
     yearly_serviced_weight,
 )
 
@@ -33,6 +34,10 @@ WASTE_SENSOR_NAMES = {
 
 async def async_setup_entry(hass: HomeAssistant, entry: EcoserviceConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     entities = [NextCollectionDateSensor(entry)]
+    entities.extend(
+        NextWasteTypeCollectionDateSensor(entry, waste_type, slug)
+        for waste_type, slug in WASTE_SENSOR_TYPES
+    )
     entities.extend(EcoserviceSensor(entry, inventory) for inventory in entry.data[CONF_CONTAINERS])
     if entry.data.get(CONF_VASA_ENABLED):
         entities.append(VasaLastCollectionSensor(entry))
@@ -97,6 +102,39 @@ class NextCollectionDateSensor(EcoserviceEntity, SensorEntity):
             "days_until_collection": (item[0] - date.today()).days if item else None,
             "inventory_number": item[1] if item else None,
             "waste_type": item[2].container.waste_type.value if item else None,
+            "data_source": SOURCE_URL,
+        }
+
+
+class NextWasteTypeCollectionDateSensor(EcoserviceEntity, SensorEntity):
+    _attr_device_class = SensorDeviceClass.DATE
+    _attr_icon = "mdi:calendar-arrow-right"
+
+    def __init__(self, entry: EcoserviceConfigEntry, waste_type: WasteType, slug: str) -> None:
+        super().__init__(entry)
+        self.waste_type = waste_type
+        self._attr_unique_id = f"{entry.entry_id}_next_{slug}_collection_date"
+        self._attr_suggested_object_id = f"next_{slug}_collection_date"
+        self._attr_name = f"Kitas {WASTE_SENSOR_NAMES[waste_type]} surinkimas"
+
+    @property
+    def next_item(self):
+        return next_collection_for_waste(
+            self.coordinator.data.values(), self.waste_type, date.today()
+        )
+
+    @property
+    def native_value(self):
+        item = self.next_item
+        return item[0] if item else None
+
+    @property
+    def extra_state_attributes(self):
+        item = self.next_item
+        return {
+            "days_until_collection": (item[0] - date.today()).days if item else None,
+            "inventory_number": item[1] if item else None,
+            "waste_type": self.waste_type.value,
             "data_source": SOURCE_URL,
         }
 

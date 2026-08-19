@@ -4,7 +4,7 @@ from datetime import timedelta
 
 DOMAIN = "ecoservice_waste_collection"
 NAME = "Waste Collection Ecoservice Lithuania"
-VERSION = "0.1.9"
+VERSION = "0.1.10"
 REPORT_URL = "https://app.powerbi.com/view?r=eyJrIjoiNjY4OWNlMDYtODVmNC00YzIzLWJhZjAtMzE4YzA4N2ZkNDg2IiwidCI6IjNjNmM1MmUyLTkwMzUtNGZmMy1hNmFjLTc2YmQ0ZTY2NzNiMiIsImMiOjl9"
 SOURCE_URL = "https://ecoservice.lt/grafikai/"
 UPDATE_INTERVAL = timedelta(hours=24)
