@@ -14,7 +14,7 @@ from aiohttp import ClientError, ClientSession, ClientTimeout
 from .const import REPORT_URL
 from .models import Container, Schedule, normalize_dates, waste_type_from_inventory
 
-ADDRESS_QUERY_LIMIT = 100_000
+ADDRESS_QUERY_LIMIT = 30_000
 
 
 class EcoserviceApiError(Exception):
@@ -59,6 +59,11 @@ class _Metadata:
     inventory: str
     collection_date: str
     capacity: str | None
+    schedule_entity: str
+    schedule_municipality: str
+    schedule_address: str
+    schedule_inventory: str
+    schedule_date: str
 
 
 class EcoserviceApi:
@@ -122,7 +127,21 @@ class EcoserviceApi:
         }
 
     @staticmethod
-    def _discover_fields(schema: dict[str, Any]) -> tuple[str, str, str, str, str, str | None]:
+    def _discover_fields(
+        schema: dict[str, Any],
+    ) -> tuple[
+        str,
+        str,
+        str,
+        str,
+        str,
+        str | None,
+        str,
+        str,
+        str,
+        str,
+        str,
+    ]:
         raw = schema.get("model") or schema.get("schemas") or schema
         text = json.dumps(raw, ensure_ascii=False)
         candidates: list[tuple[str, list[str]]] = []
@@ -144,35 +163,103 @@ class EcoserviceApi:
         }
         def pick(names: list[str], keys: Iterable[str]) -> str | None:
             return next((n for n in names if any(k in n.casefold() for k in keys)), None)
+        source_fields = None
+        schedule_fields = None
         for entity, names in candidates:
             municipality = next(
                 (name for name in names if name.casefold().rstrip(".") in {"sav", "savivaldybė"}),
                 next((name for name in names if "sav" in name.casefold() and "code" not in name.casefold()), None),
             )
-            values = [municipality, pick(names, aliases["address"]), pick(names, aliases["inventory"]), pick(names, aliases["collection"])]
-            if all(values):
-                return entity, values[0], values[1], values[2], values[3], pick(names, aliases["capacity"])  # type: ignore[return-value]
+            address = pick(names, aliases["address"])
+            inventory = pick(names, aliases["inventory"])
+            collection_date = pick(names, aliases["collection"])
+            if (
+                source_fields is None
+                and municipality
+                and address
+                and inventory
+                and collection_date
+            ):
+                source_fields = (
+                    entity,
+                    municipality,
+                    address,
+                    inventory,
+                    collection_date,
+                    pick(names, aliases["capacity"]),
+                )
+            exact_date = next(
+                (name for name in names if name.casefold().strip() in {"date", "data"}),
+                None,
+            )
+            if municipality and address and inventory and exact_date:
+                schedule_fields = (
+                    entity,
+                    municipality,
+                    address,
+                    inventory,
+                    exact_date,
+                )
+        if source_fields:
+            if schedule_fields is None:
+                schedule_fields = (
+                    source_fields[0],
+                    source_fields[1],
+                    source_fields[2],
+                    source_fields[3],
+                    source_fields[4],
+                )
+            return (*source_fields, *schedule_fields)
         raise EcoserviceApiError(f"Required report fields were not found (schema size {len(text)})")
 
-    async def _query(self, columns: list[str], filters: dict[str, str] | None = None, count: int = 10000) -> list[list[Any]]:
+    async def _query(
+        self,
+        columns: list[str],
+        filters: dict[str, str] | None = None,
+        count: int = 10000,
+        entity: str | None = None,
+    ) -> list[list[Any]]:
         meta = await self._load_metadata()
         source = "e"
         selects = [{"Column":{"Expression":{"SourceRef":{"Source":source}},"Property":p},"Name":f"{source}.{p}"} for p in columns]
         where = []
         for prop, value in (filters or {}).items():
             where.append({"Condition":{"In":{"Expressions":[{"Column":{"Expression":{"SourceRef":{"Source":source}},"Property":prop}}],"Values":[[{"Literal":{"Value":powerbi_string_literal(value)}}]]}}})
-        query: dict[str, Any] = {"Version":2,"From":[{"Name":source,"Entity":meta.entity,"Type":0}],"Select":selects}
+        query: dict[str, Any] = {"Version":2,"From":[{"Name":source,"Entity":entity or meta.entity,"Type":0}],"Select":selects}
         if where: query["Where"] = where
         payload = {"version":"1.0.0","queries":[{"Query":{"Commands":[{"SemanticQueryDataShapeCommand":{"Query":query,"Binding":{"DataReduction":{"DataVolume":6,"Primary":{"Window":{"Count":count}}},"Primary":{"Groupings":[{"Projections":list(range(len(columns))),"Subtotal":1}]}},"ExecutionMetricsKind":1}}]}}],"cancelQueries":[],"modelId":meta.dataset_id}
         data = await self._request("POST", f"{meta.cluster}/public/reports/querydata?synchronous=true", headers={**self._headers(meta.resource_key),"Content-Type":"application/json"}, json=payload)
         try:
-            dsr = data["results"][0]["result"]["data"]["dsr"]["DS"][0]
-            rows = dsr.get("PH", [{}])[0].get("DM0", [])
+            data_set = data["results"][0]["result"]["data"]["dsr"]["DS"][0]
+            rows = data_set.get("PH", [{}])[0].get("DM0", [])
         except (KeyError, IndexError, TypeError) as err:
             raise EcoserviceApiError("Unexpected Power BI query response") from err
+        value_dictionaries = data_set.get("ValueDicts", {})
+        column_dictionaries: dict[int, list[Any]] = {}
+        if rows:
+            for descriptor in rows[0].get("S", []):
+                name = str(descriptor.get("N", ""))
+                dictionary_name = descriptor.get("DN")
+                if name.startswith("G") and dictionary_name in value_dictionaries:
+                    column_dictionaries[int(name[1:])] = value_dictionaries[
+                        dictionary_name
+                    ]
+
+        def decode(column: int, value: Any) -> Any:
+            dictionary = column_dictionaries.get(column)
+            if (
+                dictionary is not None
+                and isinstance(value, int)
+                and 0 <= value < len(dictionary)
+            ):
+                return dictionary[value]
+            return value
+
         result, previous = [], [None] * len(columns)
         for row in rows:
-            direct = [row.get(f"G{col}") for col in range(len(columns))]
+            direct = [
+                decode(col, row.get(f"G{col}")) for col in range(len(columns))
+            ]
             if any(value is not None for value in direct):
                 previous = [value if value is not None else previous[col] for col, value in enumerate(direct)]
                 result.append(list(previous))
@@ -181,7 +268,8 @@ class EcoserviceApi:
             repeats = row.get("R", 0)
             for col in range(len(columns)):
                 if repeats & (1 << col): continue
-                if index < len(row.get("C", [])): values[col] = row["C"][index]
+                if index < len(row.get("C", [])):
+                    values[col] = decode(col, row["C"][index])
                 index += 1
             previous = values
             result.append(values)
@@ -219,7 +307,14 @@ class EcoserviceApi:
 
     async def schedules(self, municipality: str, address: str, inventories: list[str]) -> dict[str, Schedule]:
         meta = await self._load_metadata()
-        rows = await self._query([meta.inventory, meta.collection_date], {meta.municipality: municipality, meta.address: address})
+        rows = await self._query(
+            [meta.schedule_inventory, meta.schedule_date],
+            {
+                meta.schedule_municipality: municipality,
+                meta.schedule_address: address,
+            },
+            entity=meta.schedule_entity,
+        )
         grouped: dict[str, list[Any]] = {item: [] for item in inventories}
         for inventory, value in rows:
             if str(inventory) in grouped: grouped[str(inventory)].append(value)

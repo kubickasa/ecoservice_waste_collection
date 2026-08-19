@@ -21,6 +21,7 @@ def test_waste_type_inventory_formats():
 def test_normalize_dates_and_dedupe():
     assert normalize_date("19/08/2026") == date(2026, 8, 19)
     assert normalize_date("2026-08-19T00:00:00") == date(2026, 8, 19)
+    assert normalize_date(1787356800000) == date(2026, 8, 22)
     assert normalize_date("") is None
     assert normalize_date("bad") is None
     assert normalize_dates(["19/08/2026", "2026-08-19", None, "20.08.2026"]) == (date(2026,8,19), date(2026,8,20))
@@ -32,4 +33,3 @@ def test_next_and_days_until():
     assert next_collection(dates, today) == date(2026,8,19)
     assert days_until(dates, today) == 1
     assert days_until((), today) is None
-

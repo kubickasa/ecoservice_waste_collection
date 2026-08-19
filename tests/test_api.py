@@ -54,3 +54,106 @@ def test_addresses_request_the_complete_large_municipality_list():
 
     assert requested_counts == [ADDRESS_QUERY_LIMIT]
     assert addresses == ["Rukainių g. 102, Vilniaus m."]
+
+
+def test_query_decodes_power_bi_value_dictionaries():
+    class StubApi(EcoserviceApi):
+        async def _load_metadata(self):
+            return SimpleNamespace(
+                cluster="https://example.test",
+                dataset_id="dataset",
+                entity="Entity",
+                resource_key="key",
+            )
+
+        async def _request(self, method, url, **kwargs):
+            return {
+                "results": [
+                    {
+                        "result": {
+                            "data": {
+                                "dsr": {
+                                    "DS": [
+                                        {
+                                            "PH": [
+                                                {
+                                                    "DM0": [
+                                                        {
+                                                            "S": [
+                                                                {"N": "G0", "DN": "D0"},
+                                                                {"N": "G1"},
+                                                            ],
+                                                            "C": [0, 1787356800000],
+                                                        },
+                                                        {"C": [1], "R": 2},
+                                                        {"C": [2, 1793404800000]},
+                                                    ]
+                                                }
+                                            ],
+                                            "ValueDicts": {
+                                                "D0": [
+                                                    "13-L-144638",
+                                                    "13-P-103319",
+                                                    "13-S-103541",
+                                                ]
+                                            },
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+
+    rows = asyncio.run(StubApi(None)._query(["Inventory", "Date"]))
+
+    assert rows == [
+        ["13-L-144638", 1787356800000],
+        ["13-P-103319", 1787356800000],
+        ["13-S-103541", 1793404800000],
+    ]
+
+
+def test_metadata_uses_inventory_days_for_the_full_schedule():
+    schema = {
+        "model": {
+            "entities": [
+                {
+                    "name": "Objektai",
+                    "properties": [
+                        {"name": "Sav."},
+                        {"name": "Adresas"},
+                        {"name": "Inventorinis numeris"},
+                        {"name": "Sekantis aptarnavimas"},
+                    ],
+                },
+                {
+                    "name": "InventoryDays",
+                    "properties": [
+                        {"name": "Sav."},
+                        {"name": "Adresas"},
+                        {"name": "Inventorinis numeris"},
+                        {"name": "Date"},
+                    ],
+                },
+            ]
+        }
+    }
+
+    fields = EcoserviceApi._discover_fields(schema)
+
+    assert fields[0:5] == (
+        "Objektai",
+        "Sav.",
+        "Adresas",
+        "Inventorinis numeris",
+        "Sekantis aptarnavimas",
+    )
+    assert fields[6:] == (
+        "InventoryDays",
+        "Sav.",
+        "Adresas",
+        "Inventorinis numeris",
+        "Date",
+    )
