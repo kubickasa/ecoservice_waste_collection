@@ -32,26 +32,20 @@ WASTE_SENSOR_NAMES = {
 }
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: EcoserviceConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: EcoserviceConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     entities = [NextCollectionDateSensor(entry)]
     entities.extend(
-        NextWasteTypeCollectionDateSensor(entry, waste_type, slug)
-        for waste_type, slug in WASTE_SENSOR_TYPES
+        NextWasteTypeCollectionDateSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES
     )
     entities.extend(EcoserviceSensor(entry, inventory) for inventory in entry.data[CONF_CONTAINERS])
     if entry.data.get(CONF_VASA_ENABLED):
         entities.append(VasaLastCollectionSensor(entry))
+        entities.extend(VasaYearWeightSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
+        entities.extend(VasaLastWeightSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
         entities.extend(
-            VasaYearWeightSensor(entry, waste_type, slug)
-            for waste_type, slug in WASTE_SENSOR_TYPES
-        )
-        entities.extend(
-            VasaLastWeightSensor(entry, waste_type, slug)
-            for waste_type, slug in WASTE_SENSOR_TYPES
-        )
-        entities.extend(
-            VasaLastCollectionDateSensor(entry, waste_type, slug)
-            for waste_type, slug in WASTE_SENSOR_TYPES
+            VasaLastCollectionDateSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES
         )
         entities.append(VasaPayableAmountSensor(entry))
     async_add_entities(entities)
@@ -59,16 +53,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: EcoserviceConfigEntry, a
 
 def _records_for_waste(entry: EcoserviceConfigEntry, waste_type: WasteType):
     inventories = {
-        key
-        for key, schedule in entry.runtime_data.data.items()
-        if schedule.container.waste_type is waste_type
+        key for key, schedule in entry.runtime_data.data.items() if schedule.container.waste_type is waste_type
     }
-    return (
-        item
-        for key, values in entry.runtime_data.histories.items()
-        if key in inventories
-        for item in values
-    )
+    return (item for key, values in entry.runtime_data.histories.items() if key in inventories for item in values)
 
 
 class NextCollectionDateSensor(EcoserviceEntity, SensorEntity):
@@ -119,9 +106,7 @@ class NextWasteTypeCollectionDateSensor(EcoserviceEntity, SensorEntity):
 
     @property
     def next_item(self):
-        return next_collection_for_waste(
-            self.coordinator.data.values(), self.waste_type, date.today()
-        )
+        return next_collection_for_waste(self.coordinator.data.values(), self.waste_type, date.today())
 
     @property
     def native_value(self):
@@ -142,6 +127,7 @@ class NextWasteTypeCollectionDateSensor(EcoserviceEntity, SensorEntity):
 class EcoserviceSensor(EcoserviceEntity, SensorEntity):
     _attr_native_unit_of_measurement = UnitOfTime.DAYS
     _attr_icon = "mdi:trash-can-clock"
+
     def __init__(self, entry: EcoserviceConfigEntry, inventory: str) -> None:
         super().__init__(entry)
         self.inventory = inventory
@@ -149,16 +135,31 @@ class EcoserviceSensor(EcoserviceEntity, SensorEntity):
         self._attr_name = f"{WASTE_NAMES[self.schedule.container.waste_type]} – {inventory} – Dienų iki išvežimo"
 
     @property
-    def schedule(self): return self.coordinator.data[self.inventory]
+    def schedule(self):
+        return self.coordinator.data[self.inventory]
 
     @property
-    def native_value(self) -> int | None: return days_until(self.schedule.dates, date.today())
+    def native_value(self) -> int | None:
+        return days_until(self.schedule.dates, date.today())
 
     @property
     def extra_state_attributes(self):
         upcoming = [d for d in self.schedule.dates if d >= date.today()][:10]
         history = self.coordinator.histories.get(self.inventory, ())
-        return {"next_collection_date": (next_collection(self.schedule.dates, date.today()) or None), "waste_type": self.schedule.container.waste_type.value, "inventory_number": self.inventory, "municipality": self.entry.data[CONF_MUNICIPALITY], "address": self.entry.data[CONF_ADDRESS], "upcoming_collection_dates": upcoming, "last_successful_update": self.coordinator.last_successful_update, "data_source": SOURCE_URL, "collection_history": [{"date": item.date, "servicing": item.servicing, "reason": item.reason, "weight_kg": item.weight_kg} for item in history]}
+        return {
+            "next_collection_date": (next_collection(self.schedule.dates, date.today()) or None),
+            "waste_type": self.schedule.container.waste_type.value,
+            "inventory_number": self.inventory,
+            "municipality": self.entry.data[CONF_MUNICIPALITY],
+            "address": self.entry.data[CONF_ADDRESS],
+            "upcoming_collection_dates": upcoming,
+            "last_successful_update": self.coordinator.last_successful_update,
+            "data_source": SOURCE_URL,
+            "collection_history": [
+                {"date": item.date, "servicing": item.servicing, "reason": item.reason, "weight_kg": item.weight_kg}
+                for item in history
+            ],
+        }
 
 
 class VasaLastCollectionSensor(EcoserviceEntity, SensorEntity):
@@ -175,7 +176,12 @@ class VasaLastCollectionSensor(EcoserviceEntity, SensorEntity):
 
     @property
     def latest(self):
-        serviced = [item for values in self.coordinator.histories.values() for item in values if item.servicing.casefold().strip() == "aptarnautas"]
+        serviced = [
+            item
+            for values in self.coordinator.histories.values()
+            for item in values
+            if item.servicing.casefold().strip() == "aptarnautas"
+        ]
         return max(serviced, key=lambda item: item.date, default=None)
 
     @property
@@ -189,7 +195,14 @@ class VasaLastCollectionSensor(EcoserviceEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         latest = self.latest
-        return {"collection_date": latest.date if latest else None, "weight_kg": latest.weight_kg if latest else None, "inventory_number": latest.inventory_number if latest else None, "servicing": latest.servicing if latest else None, "reason": latest.reason if latest else None, "data_source": f"{VASA_BASE_URL}/orders"}
+        return {
+            "collection_date": latest.date if latest else None,
+            "weight_kg": latest.weight_kg if latest else None,
+            "inventory_number": latest.inventory_number if latest else None,
+            "servicing": latest.servicing if latest else None,
+            "reason": latest.reason if latest else None,
+            "data_source": f"{VASA_BASE_URL}/orders",
+        }
 
 
 class VasaYearWeightSensor(EcoserviceEntity, SensorEntity):
@@ -212,21 +225,18 @@ class VasaYearWeightSensor(EcoserviceEntity, SensorEntity):
     @property
     def native_value(self) -> float:
         inventories = {
-            key
-            for key, schedule in self.coordinator.data.items()
-            if schedule.container.waste_type is self.waste_type
+            key for key, schedule in self.coordinator.data.items() if schedule.container.waste_type is self.waste_type
         }
-        records = (
-            item
-            for key, values in self.coordinator.histories.items()
-            if key in inventories
-            for item in values
-        )
+        records = (item for key, values in self.coordinator.histories.items() if key in inventories for item in values)
         return yearly_serviced_weight(records, date.today().year)
 
     @property
     def extra_state_attributes(self):
-        return {"year": date.today().year, "waste_type": self.waste_type.value, "data_source": f"{VASA_BASE_URL}/orders"}
+        return {
+            "year": date.today().year,
+            "waste_type": self.waste_type.value,
+            "data_source": f"{VASA_BASE_URL}/orders",
+        }
 
 
 class VasaLastWeightSensor(EcoserviceEntity, SensorEntity):

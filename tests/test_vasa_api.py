@@ -14,10 +14,28 @@ from custom_components.ecoservice_waste_collection.vasa_api import (
 
 
 def test_parse_anonymized_vasa_history():
-    payload = {"result": {"items": [
-        {"allColumnsValues": {"Data": "2026-08-08", "Aptarnavimas": "Aptarnautas", "Priežastis": "", "Svoris, kg.": "46"}},
-        {"allColumnsValues": {"Data": "2026-07-25", "Aptarnavimas": "Neaptarnautas", "Priežastis": "Neišstumtas konteineris", "Svoris, kg.": 0}},
-    ]}}
+    payload = {
+        "result": {
+            "items": [
+                {
+                    "allColumnsValues": {
+                        "Data": "2026-08-08",
+                        "Aptarnavimas": "Aptarnautas",
+                        "Priežastis": "",
+                        "Svoris, kg.": "46",
+                    }
+                },
+                {
+                    "allColumnsValues": {
+                        "Data": "2026-07-25",
+                        "Aptarnavimas": "Neaptarnautas",
+                        "Priežastis": "Neišstumtas konteineris",
+                        "Svoris, kg.": 0,
+                    }
+                },
+            ]
+        }
+    }
     records = parse_collection_records(payload, "00-L-000000")
     assert records[0].date == date(2026, 8, 8)
     assert records[0].weight_kg == 46
@@ -55,7 +73,7 @@ def test_parse_vasa_payable_invoices_and_total():
                         "Debt": 12.5,
                     }
                 },
-            ]
+            ],
         }
     }
 
@@ -92,7 +110,5 @@ def test_payable_invoices_uses_vasa_billing_endpoint():
 
     invoices = asyncio.run(api.payable_invoices())
 
-    assert requested == [
-        ("GET", "/api/services/app/InvoiceAndPayment/GetPayableInvoicesList")
-    ]
+    assert requested == [("GET", "/api/services/app/InvoiceAndPayment/GetPayableInvoicesList")]
     assert invoices[0].amount == 50.08

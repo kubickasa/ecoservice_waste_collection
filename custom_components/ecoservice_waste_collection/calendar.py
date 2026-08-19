@@ -20,11 +20,21 @@ def build_events(entry: EcoserviceConfigEntry, start: datetime, end: datetime) -
         for day in schedule.dates:
             if start_date <= day < end_date:
                 label = WASTE_NAMES[schedule.container.waste_type]
-                events.append(CalendarEvent(start=day, end=day + timedelta(days=1), summary=f"{label} išvežimas – {schedule.container.inventory_number}", description=f"{entry.data[CONF_MUNICIPALITY]}, {entry.data[CONF_ADDRESS]}; {label}; {schedule.container.inventory_number}", location=entry.data[CONF_ADDRESS]))
+                events.append(
+                    CalendarEvent(
+                        start=day,
+                        end=day + timedelta(days=1),
+                        summary=f"{label} išvežimas – {schedule.container.inventory_number}",
+                        description=f"{entry.data[CONF_MUNICIPALITY]}, {entry.data[CONF_ADDRESS]}; {label}; {schedule.container.inventory_number}",
+                        location=entry.data[CONF_ADDRESS],
+                    )
+                )
     return sorted(events, key=lambda event: event.start)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: EcoserviceConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: EcoserviceConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     async_add_entities([EcoserviceCalendar(entry)])
 
 
@@ -59,7 +69,9 @@ class EcoserviceCalendar(EcoserviceEntity, CalendarEntity):
             "next_collection_date": events[0].start if events else None,
         }
 
-    async def async_get_events(self, hass: HomeAssistant, start_date: datetime, end_date: datetime) -> list[CalendarEvent]:
+    async def async_get_events(
+        self, hass: HomeAssistant, start_date: datetime, end_date: datetime
+    ) -> list[CalendarEvent]:
         return build_events(self.entry, start_date, end_date)
 
     def _handle_coordinator_update(self) -> None:

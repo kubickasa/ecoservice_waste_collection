@@ -1,1 +1,4 @@
-{"name":"Waste Collection Ecoservice Lithuania","render_readme":true,"homeassistant":"2025.1.0"}
+{
+  "name": "Waste Collection Ecoservice Lithuania",
+  "country": "LT"
+}

@@ -96,27 +96,18 @@ def parse_payable_invoices(payload: Any) -> tuple[PayableInvoice, ...]:
             name = column.get("name")
             display_name = column.get("displayName")
             if name and display_name:
-                column_labels[_normalized_key(str(name))] = _normalized_key(
-                    str(display_name)
-                )
+                column_labels[_normalized_key(str(name))] = _normalized_key(str(display_name))
     for row in _iter_dicts(_unwrap(payload)):
         values = _normalized_values(row)
         normalized = {_normalized_key(key): value for key, value in values.items()}
         normalized.update(
-            {
-                column_labels[key]: value
-                for key, value in tuple(normalized.items())
-                if key in column_labels
-            }
+            {column_labels[key]: value for key, value in tuple(normalized.items()) if key in column_labels}
         )
         invoice_number = next(
             (
                 value
                 for key, value in normalized.items()
-                if (
-                    ("saskait" in key or "invoice" in key)
-                    and any(marker in key for marker in ("nr", "number", "no"))
-                )
+                if (("saskait" in key or "invoice" in key) and any(marker in key for marker in ("nr", "number", "no")))
             ),
             None,
         )
@@ -124,12 +115,7 @@ def parse_payable_invoices(payload: Any) -> tuple[PayableInvoice, ...]:
             (
                 value
                 for key, value in normalized.items()
-                if (
-                    "moketin" in key
-                    or "payable" in key
-                    or "sumtopay" in key
-                    or "amounttopay" in key
-                )
+                if ("moketin" in key or "payable" in key or "sumtopay" in key or "amounttopay" in key)
             ),
             None,
         )
@@ -144,11 +130,13 @@ def parse_collection_records(payload: Any, inventory: str) -> tuple[CollectionRe
     records: set[CollectionRecord] = set()
     for row in _iter_dicts(_unwrap(payload)):
         values = _normalized_values(row)
+
         def find(*aliases: str, source: dict[str, Any] = values) -> Any:
             for key, value in source.items():
                 if any(alias in key for alias in aliases):
                     return value
             return None
+
         parsed_date = normalize_date(find("data", "date", "serviceat"))
         servicing = find("aptarnav", "servic")
         if parsed_date is None or servicing is None:

@@ -1,11 +1,11 @@
 {
   "domain": "ecoservice_waste_collection",
   "name": "Waste Collection Ecoservice Lithuania",
-  "version": "0.1.11",
-  "documentation": "https://github.com/kubickasa/ecoservice_waste_collection",
-  "issue_tracker": "https://github.com/kubickasa/ecoservice_waste_collection/issues",
   "codeowners": ["@kubickasa"],
   "config_flow": true,
+  "documentation": "https://github.com/kubickasa/ecoservice_waste_collection",
+  "integration_type": "service",
   "iot_class": "cloud_polling",
-  "integration_type": "service"
+  "issue_tracker": "https://github.com/kubickasa/ecoservice_waste_collection/issues",
+  "version": "1.0.0"
 }

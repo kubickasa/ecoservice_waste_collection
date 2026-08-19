@@ -16,7 +16,11 @@ type EcoserviceConfigEntry = ConfigEntry[EcoserviceCoordinator]
 
 async def async_setup_entry(hass: HomeAssistant, entry: EcoserviceConfigEntry) -> bool:
     session = async_get_clientsession(hass)
-    vasa_api = VasaApi(session, entry.data[CONF_VASA_USERNAME], entry.data[CONF_VASA_PASSWORD]) if entry.data.get(CONF_VASA_ENABLED) else None
+    vasa_api = (
+        VasaApi(session, entry.data[CONF_VASA_USERNAME], entry.data[CONF_VASA_PASSWORD])
+        if entry.data.get(CONF_VASA_ENABLED)
+        else None
+    )
     coordinator = EcoserviceCoordinator(hass, entry, EcoserviceApi(session), vasa_api)
     await coordinator.async_load_cached()
     try:

@@ -23,9 +23,7 @@ def test_powerbi_string_literal():
 
 def test_search_normalization_is_case_and_accent_insensitive():
     assert normalize_search_text("  ĄŽUOLŲ  ") == "azuolu"
-    assert normalize_search_text("Rukainių g.").startswith(
-        normalize_search_text("RU")
-    )
+    assert normalize_search_text("Rukainių g.").startswith(normalize_search_text("RU"))
 
 
 def test_natural_address_sorting():
