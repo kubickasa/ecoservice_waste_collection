@@ -1,147 +1,163 @@
 # Waste Collection Ecoservice Lithuania
 
-Neoficiali „Home Assistant“ integracija, nuskaitanti viešai paskelbtą „Ecoservice“ atliekų išvežimo grafiką. Pasirinktinai ji gali prisijungti prie VASA savitarnos ir gauti faktinių aptarnavimų istoriją bei svorius. English documentation follows below.
+Waste Collection Ecoservice Lithuania is a Home Assistant custom integration for scheduled waste collections in Lithuania. It reads the public collection report linked from the [Ecoservice schedules page](https://ecoservice.lt/grafikai/) and can optionally retrieve collection history, weights, and payable invoices from the VASA self-service portal.
 
-## Reikalavimai
+> [!IMPORTANT]
+> This is an unofficial community integration. It is not affiliated with, endorsed by, or supported by Ecoservice, VASA, Microsoft, or Home Assistant.
 
-- „Home Assistant“ 2025.1 arba naujesnė versija;
-- HACS arba galimybė rankiniu būdu kopijuoti `custom_components` katalogą;
-- interneto ryšys su `ecoservice.lt`, `app.powerbi.com` ir „Microsoft Power BI“ viešos ataskaitos serveriais;
-- VASA funkcijoms – įprastas `savitarna.vasa.lt` el. pašto ir slaptažodžio prisijungimas. El. valdžios vartai ir dviejų veiksnių patvirtinimas nepalaikomi.
+## Features
 
-## Diegimas per HACS
+- UI-based setup with searchable municipality and address selectors.
+- Prefix address filtering after the first three entered characters and a naturally sorted A–Z list when the field is empty.
+- Selection of one or more containers associated with an address.
+- An enabled-by-default calendar containing all scheduled collection dates.
+- A nearest-collection date sensor and separate next-collection sensors for each supported waste type.
+- A days-until-collection sensor for every selected container.
+- Optional VASA sensors for the latest collection date, latest collected weight, yearly weight, and payable amount.
+- Daily refresh with local caching of the last successfully retrieved data.
+- English and Lithuanian configuration-flow translations.
 
-1. HACS → Integrations → trijų taškų meniu → Custom repositories.
-2. Įrašykite `https://github.com/kubickasa/ecoservice_waste_collection`, tipas **Integration**.
-3. Raskite **Waste Collection Ecoservice Lithuania**, įdiekite ir paleiskite „Home Assistant“ iš naujo.
-4. Settings → Devices & services → Add integration → Waste Collection Ecoservice Lithuania.
-5. Pasirinkite savivaldybę, įrašykite tikslų adresą ir pasirinkite konteinerius.
+Supported country: **Lithuania (`LT`)**.
 
-Atnaujinant integraciją HACS aplinkoje pasirinkite **Redownload**, o po atnaujinimo perkraukite „Home Assistant“.
+## Waste-type codes
 
-### Rankinis diegimas
+The letter in an inventory number identifies the waste type:
 
-Nukopijuokite katalogą `custom_components/ecoservice_waste_collection` į savo HA konfigūracijos `custom_components` katalogą ir perkraukite HA. Galutinis kelias turi būti:
+| Code | Waste type |
+| --- | --- |
+| `L` | Mixed/general waste |
+| `P` | Paper waste |
+| `S` | Glass waste |
 
-```text
-/config/custom_components/ecoservice_waste_collection/manifest.json
-```
+## Installation
 
-## Konfigūravimas
+### HACS custom repository
 
-### Integracijos pridėjimas Home Assistant
+Until this integration is accepted into the default HACS catalog:
 
-1. Atidarykite **Settings** ir pasirinkite **Devices & services**.
+1. Open HACS in Home Assistant.
+2. Select **Integrations**, open the three-dot menu, and choose **Custom repositories**.
+3. Add `https://github.com/kubickasa/ecoservice_waste_collection` with category **Integration**.
+4. Find **Waste Collection Ecoservice Lithuania** and install it.
+5. Restart Home Assistant.
 
-   ![Home Assistant Settings – Devices & services](docs/images/setup/01-settings-devices-services.png)
+After acceptance into the default HACS catalog, search for **Waste Collection Ecoservice Lithuania** directly in HACS; adding a custom repository will no longer be necessary.
 
-2. Lango apačioje paspauskite **+ Add integration**.
+### Manual installation
 
-   ![Home Assistant Add integration mygtukas](docs/images/setup/02-add-integration.png)
+1. Download the latest GitHub Release.
+2. Copy `custom_components/ecoservice_waste_collection` into the `custom_components` directory in your Home Assistant configuration.
+3. Confirm that this file exists:
 
-3. Paieškoje įrašykite `Ecoservice` ir pasirinkite **Waste Collection Ecoservice Lithuania**.
+   ```text
+   /config/custom_components/ecoservice_waste_collection/manifest.json
+   ```
 
-   ![Ecoservice integracijos paieška](docs/images/setup/03-search-ecoservice.png)
+4. Restart Home Assistant.
 
-4. Pradėkite rašyti savivaldybės pavadinimą ir pasirinkite pasiūlytą variantą arba, nieko neįvedę, pasirinkite savivaldybę iš slenkamo sąrašo.
+## Configuration
 
-   ![Savivaldybės pasirinkimas](docs/images/setup/04-select-municipality.png)
+Configure the integration entirely through the Home Assistant UI:
 
-5. Atidarykite adreso lauką ir įrašykite bent tris pirmuosius adreso simbolius, pavyzdžiui, `Ruk`. Filtruoti variantai iškart rodomi po paieškos lauku. Nieko neįvedę galite slinkti per visą natūraliai A–Z surikiuotą pasirinktos savivaldybės adresų sąrašą.
+1. Go to **Settings → Devices & services** and select **Add integration**.
 
-   ![Adreso įvedimas](docs/images/setup/05-enter-address.png)
+   ![Open Devices and services](docs/images/setup/01-settings-devices-services.png)
 
-6. Pasirinkite tikslų adresą iš filtruotų rezultatų ir paspauskite **Submit**.
+2. Select **Add integration**.
 
-   ![Adreso patvirtinimas](docs/images/setup/06-submit-address.png)
+   ![Select Add integration](docs/images/setup/02-add-integration.png)
 
-7. Pasirinkite vieną ar kelis su adresu susietus konteinerius.
-8. Patikrinkite artimiausių išvežimų santrauką.
-9. Jei norite gauti faktinių išvežimų, svorių ir mokėtinų sąskaitų duomenis, pažymėkite aiškaus sutikimo varnelę **Noriu gauti duomenis iš VASA savitarnos...** ir įveskite VASA el. paštą bei slaptažodį. Nepažymėjus varnelės VASA užklausos nevykdomos.
+3. Search for and select **Waste Collection Ecoservice Lithuania**.
 
-Nustatymus vėliau galima keisti integracijos **Configure** lange nešalinant integracijos.
+   ![Search for the Ecoservice integration](docs/images/setup/03-search-ecoservice.png)
 
-## Sukuriami objektai
+4. Start typing a municipality name and select an exact suggestion, or leave the field empty to browse the list.
 
-Sukuriamas vienas bendras kalendorius adresui, bendras **Artimiausias atliekų surinkimas** datos jutiklis, trys atskiri kito popieriaus, stiklo ir bendrųjų atliekų surinkimo datos jutikliai bei kiekvieno konteinerio jutiklis „Dienų iki išvežimo“. Visi objektai priklauso vienam įrenginiui. Adresas ir inventoriniai numeriai lieka vietinėje HA instancijoje; telemetrijos nėra.
+   ![Select a municipality](docs/images/setup/04-select-municipality.png)
 
-Pažymėjus VASA sutikimo varnelę, integracija kartą per parą paima pasirinktų konteinerių faktinio aptarnavimo istoriją: datą, aptarnavimo būseną, priežastį ir svorį. Iki 100 įrašų vienam konteineriui saugoma vietiniame HA `Store`. Papildomas jutiklis **„Paskutinis faktinis išvežimas“** rodo atliekų rūšį, o jo atributas `weight_kg` – paskutinį svorį.
+5. Open the address selector. Enter at least the first three characters to filter addresses by the beginning of the address, or leave it empty to browse the naturally sorted A–Z list.
 
-Kiekvienai atliekų rūšiai (popierius, stiklas ir bendrosios atliekos) sukuriamas atskiras paskutinio sėkmingo išvežimo datos ir to išvežimo svorio jutiklis. Jutiklis **VASA mokėtina suma** rodo bendrą mokėtiną sumą eurais, o atribute `invoices` pateikia atskirus sąskaitų numerius bei sumas.
+   ![Enter the start of an address](docs/images/setup/05-enter-address.png)
 
-Taip pat sukuriami einamųjų metų suminiai svorio jutikliai `this_year_paper_weight`, `this_year_glass_weight` ir `this_year_mixed_waste_weight`. Į sumą įtraukiami tik VASA įrašai, kurių aptarnavimo būsena yra „Aptarnautas“ ir pateiktas svoris.
+6. Select the exact address and continue.
 
-- Vienas visos dienos įvykių kalendorius su visais pasirinktais konteineriais.
-- Vienas datos jutiklis, rodantis artimiausią visų pasirinktų konteinerių planinį išvežimą.
-- Trys datos jutikliai, atskirai rodantys kitą popieriaus, stiklo ir bendrųjų atliekų surinkimą.
-- Kiekvienam konteineriui – jutiklis, rodantis dienas iki artimiausio planinio išvežimo.
-- Įjungus VASA – po tris paskutinio išvežimo datos ir svorio jutiklius, mokėtinos sumos jutiklis, `Paskutinis faktinis išvežimas` ir trys einamųjų metų svorio jutikliai kilogramais.
-- Konteinerio jutiklio `collection_history` atribute saugoma iki 100 naujausių VASA istorijos įrašų.
+   ![Submit the selected address](docs/images/setup/06-submit-address.png)
 
-Tikslūs `entity_id` gali turėti adreso ar įrenginio priešdėlį ir gali būti pakeisti HA objektų registre. `unique_id` išlieka stabilūs.
+7. Select one or more containers and review the next collection dates.
+8. Optionally consent to VASA access and enter the VASA username and password. No VASA request is made unless the consent checkbox is selected.
 
-Slaptažodis nepatenka į žurnalus ar jutiklių atributus. Jis saugomas vietiniame Home Assistant `ConfigEntry` (`.storage`) kartu su kitais integracijos nustatymais; HA tai nėra operacinės sistemos slaptažodžių saugykla, todėl būtina apsaugoti failų sistemą ir atsargines kopijas. VASA dviejų veiksnių ir el. valdžios vartų prisijungimas nepalaikomas.
+The integration uses one config entry per municipality/address pair. Open **Configure** on the integration entry to update the selected containers or VASA settings later.
 
-```yaml
-automation:
-  - alias: "Priminti apie atliekų išvežimą"
-    triggers:
-      - trigger: numeric_state
-        entity_id: sensor.ecoservice_paper_days_until_collection
-        below: 2
-    conditions:
-      - condition: template
-        value_template: >
-          {{ states('sensor.ecoservice_paper_days_until_collection') | int(-1) == 1 }}
-    actions:
-      - action: notify.notify
-        data:
-          title: "Atliekų išvežimas"
-          message: "Rytoj bus išvežamos popieriaus atliekos."
-```
+## Calendar and sensors
 
-## Duomenų šaltinis ir diagnostika
+The integration creates one device for the selected address and exposes:
 
-Integracija naudoja tą pačią autentifikacijos nereikalaujančią „Microsoft Power BI Publish to web“ ataskaitą kaip `ecoservice.lt/grafikai`. Klientas iš viešo įterpimo dokumento atranda `resource key` ir klasterį, gauna `modelsAndExploration` bei `conceptualschema`, tuomet siunčia semantines užklausas į `querydata`. Tai nėra oficialus „Ecoservice“ API. „Microsoft“ ar ataskaitos savininkui pakeitus modelio laukus / išjungus Publish-to-web, integracija nustos atsinaujinti. Ankstesnis sėkmingas grafikas saugomas HA `Store`, bet objektai pažymimi nepasiekiamais iki kito sėkmingo bandymo.
+- **Waste collection calendar** — enabled and visible by default; contains all-day events for the selected containers. Its state represents whether an event is currently active, so `off` is normal when no collection is taking place today. Upcoming entries are available through the calendar API and the `upcoming_events` attribute.
+- **Next waste collection** — the earliest upcoming date across all selected containers.
+- **Next paper collection**, **Next glass collection**, and **Next mixed-waste collection** — the next date for each waste type.
+- One **Days until collection** sensor for each selected container. Attributes include the next date, up to ten upcoming dates, municipality, address, inventory number, waste type, source, and last successful update.
 
-Jei duomenys neatsinaujina, patikrinkite, ar ataskaita atsidaro naršyklėje, HA žurnalą pagal domeną `ecoservice_waste_collection`, ir paleiskite integraciją iš naujo. Žurnale tyčia nerodomas visas adresas, inventoriniai numeriai, užklausų turinys ar laikini identifikatoriai.
+When VASA access is enabled, the integration additionally creates:
 
-### Kaip veikia VASA dalis
+- A latest successful collection date and latest collected weight sensor for each of paper, glass, and mixed waste.
+- A current-year collected weight sensor for each supported waste type.
+- A latest actual collection summary sensor.
+- A payable amount sensor in EUR, with individual invoice numbers and amounts in its attributes.
+- Up to 100 locally cached collection-history records per selected container.
 
-1. Integracija autentifikuojasi tiesiogiai VASA API naudodama vartotojo pateiktus duomenis.
-2. Iš prisijungimo sesijos gauna naudotojui prieinamas sutartis.
-3. Pagal sutartį gauna rinkliavos objektus ir jų konteinerių lenteles.
-4. Pasirinktiems konteineriams gauna išvežimo istoriją: datą, aptarnavimo būseną, priežastį ir svorį.
-5. Tik būsena **Aptarnautas** įtraukiama į metines svorio sumas.
-6. Iš `InvoiceAndPayment/GetPayableInvoicesList` gauna mokėtinas sąskaitas ir susumuoja jų likučius.
-7. Duomenys atnaujinami kartą per 24 valandas ir saugomi vietinėje versijuotoje HA saugykloje. Laikinos klaidos metu ankstesnė istorija ar sąskaitos neištrinamos.
+Exact entity IDs are assigned by Home Assistant and may include an address or device prefix. Unique IDs remain stable for a config entry.
 
-### Dažniausios problemos
+## Data refresh
 
-- **Savivaldybių ar adresų sąrašas tuščias:** patikrinkite, ar `https://ecoservice.lt/grafikai/` ataskaita veikia naršyklėje.
-- **VASA jutikliai nepasiekiami:** patikrinkite el. paštą ir slaptažodį VASA svetainėje. Paskyros, kurioms reikia papildomo patvirtinimo, nepalaikomos.
-- **Svoris lygus 0:** VASA gali pateikti nulį neaptarnautam bandymui; toks įrašas į sėkmingų išvežimų metinę sumą neįtraukiamas.
-- **Po atnaujinimo neatsirado objektų:** perkraukite integraciją arba visą HA ir patikrinkite objektų registrą.
+Schedule and optional VASA data are refreshed every **24 hours**. A manual entity update or integration reload can request an earlier refresh. The last successfully retrieved schedules and optional VASA results are stored in Home Assistant's local storage and retained when an external service is temporarily unavailable.
 
-## Privatumas ir saugumas
+The schedule client reads the public Microsoft Power BI Publish-to-web report used by the Ecoservice schedules page. This is not a documented or stable Ecoservice API. Changes to the report, its schema, publication state, or service limits can temporarily break the integration.
 
-- Telemetrija nesiunčiama.
-- Adresas, konteinerių numeriai, VASA prisijungimo duomenys ir istorija lieka vietinėje HA instancijoje.
-- Slaptažodis nerodomas objektų atributuose ar žurnaluose.
-- HA `ConfigEntry` nėra atskira operacinės sistemos slaptažodžių saugykla, todėl apsaugokite `/config/.storage`, atsargines kopijas ir prieigą prie HA.
-- Nekelkite diagnostikos failų į viešas problemas jų neperžiūrėję; juose gali būti adresų ar inventoriaus numerių.
+## Troubleshooting
 
-## Žinomi apribojimai
+### Municipality or address list is empty
 
-- „Ecoservice“ dalis remiasi vieša „Power BI Publish to web“ ataskaita, o ne oficialiu stabiliu API.
-- Ataskaitos modelio arba VASA vidinio API pakeitimai gali pareikalauti integracijos atnaujinimo.
-- Labai dideli adresų ar istorijos sąrašai ribojami, kad nebūtų apkraunami išoriniai serveriai ir HA būsena.
-- VASA el. valdžios vartų bei 2FA prisijungimas nepalaikomas.
+- Confirm that the [Ecoservice schedules page](https://ecoservice.lt/grafikai/) opens in a browser.
+- Restart the configuration flow and select an exact municipality suggestion.
+- For address filtering, enter the beginning of the street/address, not text from the middle.
 
-## English
+### No collection dates are found
 
-Unofficial Home Assistant integration for the public Ecoservice Lithuania collection report. Add `https://github.com/kubickasa/ecoservice_waste_collection` as a HACS custom integration, install it, restart Home Assistant, and configure it through Settings → Devices & services. It creates one all-day calendar for the address and one days-until-collection sensor per selected container.
+- Confirm that the same municipality, address, and inventory number display dates on the source page.
+- Reload the integration from **Settings → Devices & services**.
+- Review Home Assistant logs for `ecoservice_waste_collection`.
 
-The source is an unauthenticated Power BI Publish-to-web report, not an official supported API. The client discovers report metadata and queries its semantic model. Changes to the report schema, publication status, Power BI protocol, or result-size limits can break discovery. No telemetry is sent; address and inventory identifiers are stored only in the local Home Assistant instance.
+### Calendar state is `off`
 
-The integration also creates a date sensor for the nearest scheduled collection across all selected containers. Optional VASA consent and login add daily actual-service history, separate latest collection date and weight sensors for paper, glass, and mixed waste, and a payable-amount sensor whose attributes list the individual invoices. No VASA request is made without consent; disabling VASA removes the stored credentials. Credentials are never exposed through logs or entity attributes. VASA two-factor and government-gateway login are not supported.
+That state means no all-day collection event is active today. Open Home Assistant's Calendar panel to browse future events, or inspect the calendar entity's `upcoming_events` attribute.
+
+### VASA sensors are unavailable or unknown
+
+- Confirm the same credentials work at [VASA self-service](https://savitarna.vasa.lt/).
+- Accounts that require a government-gateway login or additional two-factor verification are not supported.
+- Verify that the selected inventory numbers exist in the VASA account and that VASA provides a successful (`Aptarnautas`) record with a weight.
+- Temporary VASA failures retain cached values but mark the affected sensors unavailable until a successful refresh.
+
+### Reporting a problem
+
+Search existing [GitHub Issues](https://github.com/kubickasa/ecoservice_waste_collection/issues) and open a new issue if needed. Include the Home Assistant version, integration version, relevant redacted logs, and reproducible steps. Remove addresses, inventory numbers, credentials, access tokens, invoices, and other personal information before posting.
+
+## Removal
+
+1. Remove the integration entry from **Settings → Devices & services**.
+2. Remove the integration in HACS, or manually delete `/config/custom_components/ecoservice_waste_collection`.
+3. Restart Home Assistant.
+4. If desired, remove any remaining dashboard cards or automations that referenced its entities.
+
+## Privacy and disclaimer
+
+- No telemetry is sent by this integration.
+- Municipality, address, container identifiers, schedules, and optional VASA results are stored in the local Home Assistant instance.
+- VASA credentials are stored in the Home Assistant config entry under `.storage`; they are not exposed as entity attributes or intentionally written to logs. Protect the Home Assistant filesystem and backups.
+- Enabling VASA authorizes this integration to send the supplied credentials directly to VASA and retrieve data available to that account.
+- Public Power BI and VASA endpoints are third-party services and may change without notice.
+- Use the integration at your own risk. The maintainers are not responsible for missed collections, billing decisions, data loss, or service availability.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

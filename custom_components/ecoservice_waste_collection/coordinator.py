@@ -26,8 +26,16 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: EcoserviceApi, vasa_api: VasaApi | None = None) -> None:
-        super().__init__(hass, logger=_LOGGER, name=DOMAIN, update_interval=UPDATE_INTERVAL)
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, api: EcoserviceApi, vasa_api: VasaApi | None = None
+    ) -> None:
+        super().__init__(
+            hass,
+            logger=_LOGGER,
+            name=DOMAIN,
+            update_interval=UPDATE_INTERVAL,
+            config_entry=entry,
+        )
         self.entry, self.api, self.vasa_api = entry, api, vasa_api
         self.histories: dict[str, tuple[CollectionRecord, ...]] = {}
         self.payable_invoices: tuple[PayableInvoice, ...] = ()
@@ -41,16 +49,33 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
         if not cached:
             return
         self.last_successful_update = datetime.fromisoformat(cached["updated"])
-        self.data = {key: Schedule(Container(key, WasteType(value["waste_type"]), value.get("capacity")), tuple(date.fromisoformat(item) for item in value["dates"])) for key, value in cached["schedules"].items()}
-        self.histories = {key: tuple(CollectionRecord(date.fromisoformat(item["date"]), key, item["servicing"], item.get("reason"), item.get("weight_kg")) for item in values) for key, values in cached.get("histories", {}).items()}
+        self.data = {
+            key: Schedule(
+                Container(key, WasteType(value["waste_type"]), value.get("capacity")),
+                tuple(date.fromisoformat(item) for item in value["dates"]),
+            )
+            for key, value in cached["schedules"].items()
+        }
+        self.histories = {
+            key: tuple(
+                CollectionRecord(
+                    date.fromisoformat(item["date"]), key, item["servicing"], item.get("reason"), item.get("weight_kg")
+                )
+                for item in values
+            )
+            for key, values in cached.get("histories", {}).items()
+        }
         self.payable_invoices = tuple(
-            PayableInvoice(item["invoice_number"], float(item["amount"]))
-            for item in cached.get("payable_invoices", [])
+            PayableInvoice(item["invoice_number"], float(item["amount"])) for item in cached.get("payable_invoices", [])
         )
 
     async def _async_update_data(self) -> dict[str, Schedule]:
         try:
-            schedules = await self.api.schedules(self.entry.data[CONF_MUNICIPALITY], self.entry.data[CONF_ADDRESS], list(self.entry.data[CONF_CONTAINERS]))
+            schedules = await self.api.schedules(
+                self.entry.data[CONF_MUNICIPALITY],
+                self.entry.data[CONF_ADDRESS],
+                list(self.entry.data[CONF_CONTAINERS]),
+            )
         except EcoserviceApiError as err:
             raise UpdateFailed(str(err)) from err
         if self.vasa_api:
@@ -68,5 +93,33 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
                 self.vasa_billing_available = False
                 _LOGGER.warning("VASA billing refresh failed; cached invoices were retained")
         self.last_successful_update = datetime.now(UTC)
-        await self.store.async_save({"updated": self.last_successful_update.isoformat(), "source": SOURCE_URL, "schedules": {key: {"waste_type": value.container.waste_type.value, "capacity": value.container.capacity, "dates": [item.isoformat() for item in value.dates]} for key, value in schedules.items()}, "histories": {key: [{"date": item.date.isoformat(), "servicing": item.servicing, "reason": item.reason, "weight_kg": item.weight_kg} for item in values] for key, values in self.histories.items()}, "payable_invoices": [{"invoice_number": item.invoice_number, "amount": item.amount} for item in self.payable_invoices]})
+        await self.store.async_save(
+            {
+                "updated": self.last_successful_update.isoformat(),
+                "source": SOURCE_URL,
+                "schedules": {
+                    key: {
+                        "waste_type": value.container.waste_type.value,
+                        "capacity": value.container.capacity,
+                        "dates": [item.isoformat() for item in value.dates],
+                    }
+                    for key, value in schedules.items()
+                },
+                "histories": {
+                    key: [
+                        {
+                            "date": item.date.isoformat(),
+                            "servicing": item.servicing,
+                            "reason": item.reason,
+                            "weight_kg": item.weight_kg,
+                        }
+                        for item in values
+                    ]
+                    for key, values in self.histories.items()
+                },
+                "payable_invoices": [
+                    {"invoice_number": item.invoice_number, "amount": item.amount} for item in self.payable_invoices
+                ],
+            }
+        )
         return schedules

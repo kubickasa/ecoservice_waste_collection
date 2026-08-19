@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     BooleanSelector,
@@ -36,6 +37,7 @@ from .vasa_api import VasaApi, VasaApiError
 
 class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
     def __init__(self) -> None:
         self.values: dict[str, Any] = {}
         self.api: EcoserviceApi | None = None
@@ -57,11 +59,7 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             submitted_municipality = user_input[CONF_MUNICIPALITY].strip()
             municipality = next(
-                (
-                    option
-                    for option in self._municipalities
-                    if option.casefold() == submitted_municipality.casefold()
-                ),
+                (option for option in self._municipalities if option.casefold() == submitted_municipality.casefold()),
                 None,
             )
             if municipality is not None:
@@ -98,9 +96,7 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
         errors = {}
         if not self._addresses:
             try:
-                self._addresses = await self.api.addresses(
-                    self.values[CONF_MUNICIPALITY]
-                )
+                self._addresses = await self.api.addresses(self.values[CONF_MUNICIPALITY])
             except EcoserviceApiError:
                 errors["base"] = "cannot_connect"
 
@@ -108,11 +104,7 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None and CONF_ADDRESS in user_input:
             submitted_address = user_input[CONF_ADDRESS].strip()
             address = next(
-                (
-                    option
-                    for option in self._addresses
-                    if option.casefold() == submitted_address.casefold()
-                ),
+                (option for option in self._addresses if option.casefold() == submitted_address.casefold()),
                 None,
             )
             if address is not None:
@@ -122,9 +114,7 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_address"
 
         address_field = (
-            vol.Required(CONF_ADDRESS, default=submitted_address)
-            if submitted_address
-            else vol.Required(CONF_ADDRESS)
+            vol.Required(CONF_ADDRESS, default=submitted_address) if submitted_address else vol.Required(CONF_ADDRESS)
         )
         return self.async_show_form(
             step_id="address",
@@ -146,19 +136,43 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_containers(self, user_input=None) -> ConfigFlowResult:
         assert self.api
         errors = {}
-        try: self._containers = await self.api.containers(self.values[CONF_MUNICIPALITY], self.values[CONF_ADDRESS])
-        except EcoserviceApiError: self._containers, errors = [], {"base":"cannot_connect"}
-        if not self._containers and not errors: errors["base"] = "container_not_found"
+        try:
+            self._containers = await self.api.containers(self.values[CONF_MUNICIPALITY], self.values[CONF_ADDRESS])
+        except EcoserviceApiError:
+            self._containers, errors = [], {"base": "cannot_connect"}
+        if not self._containers and not errors:
+            errors["base"] = "container_not_found"
         if user_input:
             selected = user_input[CONF_CONTAINERS]
             try:
-                self._schedules = await self.api.schedules(self.values[CONF_MUNICIPALITY], self.values[CONF_ADDRESS], selected)
+                self._schedules = await self.api.schedules(
+                    self.values[CONF_MUNICIPALITY], self.values[CONF_ADDRESS], selected
+                )
                 self.values[CONF_CONTAINERS] = selected
                 return await self.async_step_confirm()
-            except EcoserviceNotFound: errors["base"] = "empty_schedule"
-            except EcoserviceApiError: errors["base"] = "cannot_connect"
-        options = [SelectOptionDict(value=c.inventory_number, label=f"{c.inventory_number} — {WASTE_NAMES[c.waste_type]}" + (f" — {c.capacity}" if c.capacity else "")) for c in self._containers]
-        return self.async_show_form(step_id="containers", data_schema=vol.Schema({vol.Required(CONF_CONTAINERS): SelectSelector(SelectSelectorConfig(options=options, multiple=True, mode=SelectSelectorMode.LIST))}), errors=errors)
+            except EcoserviceNotFound:
+                errors["base"] = "empty_schedule"
+            except EcoserviceApiError:
+                errors["base"] = "cannot_connect"
+        options = [
+            SelectOptionDict(
+                value=c.inventory_number,
+                label=f"{c.inventory_number} — {WASTE_NAMES[c.waste_type]}"
+                + (f" — {c.capacity}" if c.capacity else ""),
+            )
+            for c in self._containers
+        ]
+        return self.async_show_form(
+            step_id="containers",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_CONTAINERS): SelectSelector(
+                        SelectSelectorConfig(options=options, multiple=True, mode=SelectSelectorMode.LIST)
+                    )
+                }
+            ),
+            errors=errors,
+        )
 
     async def async_step_confirm(self, user_input=None) -> ConfigFlowResult:
         if user_input is not None:
@@ -166,13 +180,26 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
             if self.values[CONF_VASA_ENABLED]:
                 return await self.async_step_vasa()
             return await self._async_finish()
-        summary = "; ".join(f"{key}: {WASTE_NAMES[item.container.waste_type]} ({', '.join(d.isoformat() for d in item.dates[:3])})" for key,item in self._schedules.items())
-        return self.async_show_form(step_id="confirm", data_schema=vol.Schema({vol.Optional(CONF_VASA_ENABLED, default=False): BooleanSelector()}), description_placeholders={"municipality":self.values[CONF_MUNICIPALITY],"address":self.values[CONF_ADDRESS],"summary":summary})
+        summary = "; ".join(
+            f"{key}: {WASTE_NAMES[item.container.waste_type]} ({', '.join(d.isoformat() for d in item.dates[:3])})"
+            for key, item in self._schedules.items()
+        )
+        return self.async_show_form(
+            step_id="confirm",
+            data_schema=vol.Schema({vol.Optional(CONF_VASA_ENABLED, default=False): BooleanSelector()}),
+            description_placeholders={
+                "municipality": self.values[CONF_MUNICIPALITY],
+                "address": self.values[CONF_ADDRESS],
+                "summary": summary,
+            },
+        )
 
     async def async_step_vasa(self, user_input=None) -> ConfigFlowResult:
         errors = {}
         if user_input is not None:
-            api = VasaApi(async_get_clientsession(self.hass), user_input[CONF_VASA_USERNAME], user_input[CONF_VASA_PASSWORD])
+            api = VasaApi(
+                async_get_clientsession(self.hass), user_input[CONF_VASA_USERNAME], user_input[CONF_VASA_PASSWORD]
+            )
             try:
                 await api.authenticate()
             except VasaApiError:
@@ -180,7 +207,20 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 self.values.update(user_input)
                 return await self._async_finish()
-        return self.async_show_form(step_id="vasa", data_schema=vol.Schema({vol.Required(CONF_VASA_USERNAME): TextSelector(TextSelectorConfig(type=TextSelectorType.EMAIL, autocomplete="username")), vol.Required(CONF_VASA_PASSWORD): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD, autocomplete="current-password"))}), errors=errors)
+        return self.async_show_form(
+            step_id="vasa",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_VASA_USERNAME): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.EMAIL, autocomplete="username")
+                    ),
+                    vol.Required(CONF_VASA_PASSWORD): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD, autocomplete="current-password")
+                    ),
+                }
+            ),
+            errors=errors,
+        )
 
     async def _async_finish(self) -> ConfigFlowResult:
         await self.async_set_unique_id(f"{self.values[CONF_MUNICIPALITY]}|{self.values[CONF_ADDRESS]}".casefold())
@@ -188,17 +228,39 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_create_entry(title=self.values[CONF_ADDRESS], data=self.values)
 
     @staticmethod
-    def async_get_options_flow(config_entry): return EcoserviceOptionsFlow(config_entry)
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        return EcoserviceOptionsFlow()
 
 
 class EcoserviceOptionsFlow(OptionsFlow):
-    def __init__(self, entry) -> None: self.entry = entry
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(self, user_input=None) -> ConfigFlowResult:
+        entry = self.config_entry
         if user_input is not None:
-            updated = {**self.entry.data, **user_input}
+            updated = {**entry.data, **user_input}
             if not updated.get(CONF_VASA_ENABLED):
                 updated.pop(CONF_VASA_USERNAME, None)
                 updated.pop(CONF_VASA_PASSWORD, None)
-            self.hass.config_entries.async_update_entry(self.entry, data=updated)
+            self.hass.config_entries.async_update_entry(entry, data=updated)
             return self.async_create_entry(title="", data={})
-        return self.async_show_form(step_id="init", data_schema=vol.Schema({vol.Required(CONF_MUNICIPALITY, default=self.entry.data[CONF_MUNICIPALITY]): str, vol.Required(CONF_ADDRESS, default=self.entry.data[CONF_ADDRESS]): str, vol.Required(CONF_CONTAINERS, default=self.entry.data[CONF_CONTAINERS]): SelectSelector(SelectSelectorConfig(options=self.entry.data[CONF_CONTAINERS], multiple=True, custom_value=True)), vol.Optional(CONF_VASA_ENABLED, default=self.entry.data.get(CONF_VASA_ENABLED, False)): BooleanSelector(), vol.Optional(CONF_VASA_USERNAME, default=self.entry.data.get(CONF_VASA_USERNAME, "")): TextSelector(TextSelectorConfig(type=TextSelectorType.EMAIL, autocomplete="username")), vol.Optional(CONF_VASA_PASSWORD, default=self.entry.data.get(CONF_VASA_PASSWORD, "")): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD, autocomplete="current-password"))}))
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_MUNICIPALITY, default=entry.data[CONF_MUNICIPALITY]): str,
+                    vol.Required(CONF_ADDRESS, default=entry.data[CONF_ADDRESS]): str,
+                    vol.Required(CONF_CONTAINERS, default=entry.data[CONF_CONTAINERS]): SelectSelector(
+                        SelectSelectorConfig(options=entry.data[CONF_CONTAINERS], multiple=True, custom_value=True)
+                    ),
+                    vol.Optional(
+                        CONF_VASA_ENABLED, default=entry.data.get(CONF_VASA_ENABLED, False)
+                    ): BooleanSelector(),
+                    vol.Optional(CONF_VASA_USERNAME, default=entry.data.get(CONF_VASA_USERNAME, "")): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.EMAIL, autocomplete="username")
+                    ),
+                    vol.Optional(CONF_VASA_PASSWORD, default=entry.data.get(CONF_VASA_PASSWORD, "")): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD, autocomplete="current-password")
+                    ),
+                }
+            ),
+        )

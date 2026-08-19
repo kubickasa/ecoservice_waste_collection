@@ -48,17 +48,15 @@ def normalize_date(value: Any) -> date | None:
         try:
             timestamp = value / 1000 if abs(value) >= 100_000_000_000 else value
             return datetime.fromtimestamp(timestamp, UTC).date()
-        except (OverflowError, OSError, ValueError):
+        except OverflowError, OSError, ValueError:
             return None
     text = str(value).strip()
     if not text:
         return None
     if text.startswith("/Date("):
         try:
-            return datetime.fromtimestamp(
-                int(re.search(r"-?\d+", text).group()) / 1000, UTC
-            ).date()  # type: ignore[union-attr]
-        except (AttributeError, ValueError, OSError):
+            return datetime.fromtimestamp(int(re.search(r"-?\d+", text).group()) / 1000, UTC).date()  # type: ignore[union-attr]
+        except AttributeError, ValueError, OSError:
             return None
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%d/%m/%Y", "%d.%m.%Y"):
         try:
@@ -110,8 +108,7 @@ def next_collection_for_waste(
     candidates = (
         (day, schedule.container.inventory_number)
         for schedule in schedules
-        if schedule.container.waste_type is waste_type
-        and (day := next_collection(schedule.dates, today)) is not None
+        if schedule.container.waste_type is waste_type and (day := next_collection(schedule.dates, today)) is not None
     )
     return min(candidates, key=lambda item: item[0], default=None)
 
@@ -126,9 +123,7 @@ def yearly_serviced_weight(records: Iterable[CollectionRecord], year: int) -> fl
     return sum(
         item.weight_kg
         for item in records
-        if item.date.year == year
-        and item.servicing.casefold().strip() == "aptarnautas"
-        and item.weight_kg is not None
+        if item.date.year == year and item.servicing.casefold().strip() == "aptarnautas" and item.weight_kg is not None
     )
 
 
@@ -137,11 +132,7 @@ def latest_serviced_record(
 ) -> CollectionRecord | None:
     """Return the latest successfully serviced collection record."""
     return max(
-        (
-            item
-            for item in records
-            if item.servicing.casefold().strip() == "aptarnautas"
-        ),
+        (item for item in records if item.servicing.casefold().strip() == "aptarnautas"),
         key=lambda item: item.date,
         default=None,
     )
