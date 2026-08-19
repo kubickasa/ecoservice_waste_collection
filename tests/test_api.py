@@ -1,4 +1,8 @@
+import asyncio
+from types import SimpleNamespace
+
 from custom_components.ecoservice_waste_collection.api import (
+    ADDRESS_QUERY_LIMIT,
     EcoserviceApi,
     natural_sort_key,
     normalize_search_text,
@@ -33,3 +37,20 @@ def test_natural_address_sorting():
         "Ąžuolų g. 1",
         "B gatvė",
     ]
+
+
+def test_addresses_request_the_complete_large_municipality_list():
+    requested_counts = []
+
+    class StubApi(EcoserviceApi):
+        async def _load_metadata(self):
+            return SimpleNamespace(address="Adresas", municipality="Savivaldybė")
+
+        async def _query(self, columns, filters=None, count=10_000):
+            requested_counts.append(count)
+            return [["Rukainių g. 102, Vilniaus m."]]
+
+    addresses = asyncio.run(StubApi(None).addresses("Vilniaus m."))
+
+    assert requested_counts == [ADDRESS_QUERY_LIMIT]
+    assert addresses == ["Rukainių g. 102, Vilniaus m."]
