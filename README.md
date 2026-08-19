@@ -47,11 +47,11 @@ Nukopijuokite katalogą `custom_components/ecoservice_waste_collection` į savo 
 
    ![Savivaldybės pasirinkimas](docs/images/setup/04-select-municipality.png)
 
-5. Pradėkite rašyti gatvę, namo numerį ar kitą adreso dalį ir pasirinkite pasiūlytą tikslų adresą. Nieko neįvedę galite slinkti per visą pasirinktos savivaldybės adresų sąrašą.
+5. Adreso paieškoje įrašykite adreso pradžią, pavyzdžiui, `Ruk`, ir tęskite. Paieška neatsižvelgia į raidžių dydį ar lietuviškus diakritinius ženklus. Palikę lauką tuščią atidarysite visą pasirinktos savivaldybės adresų sąrašą.
 
    ![Adreso įvedimas](docs/images/setup/05-enter-address.png)
 
-6. Paspauskite **Submit**. Pasirinktas adresas bus patikrintas viešoje ataskaitoje.
+6. Iš natūraliai A–Z surikiuotų rezultatų pasirinkite tikslų adresą ir paspauskite **Submit**.
 
    ![Adreso patvirtinimas](docs/images/setup/06-submit-address.png)
 
