@@ -104,6 +104,18 @@ def next_collection(dates: tuple[date, ...], today: date) -> date | None:
     return next((item for item in dates if item >= today), None)
 
 
+def next_collection_for_waste(
+    schedules: Iterable[Schedule], waste_type: WasteType, today: date
+) -> tuple[date, str] | None:
+    candidates = (
+        (day, schedule.container.inventory_number)
+        for schedule in schedules
+        if schedule.container.waste_type is waste_type
+        and (day := next_collection(schedule.dates, today)) is not None
+    )
+    return min(candidates, key=lambda item: item[0], default=None)
+
+
 def days_until(dates: tuple[date, ...], today: date) -> int | None:
     upcoming = next_collection(dates, today)
     return (upcoming - today).days if upcoming else None

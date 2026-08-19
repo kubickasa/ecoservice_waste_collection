@@ -1,9 +1,12 @@
 from datetime import date
 
 from custom_components.ecoservice_waste_collection.models import (
+    Container,
+    Schedule,
     WasteType,
     days_until,
     next_collection,
+    next_collection_for_waste,
     normalize_date,
     normalize_dates,
     waste_type_from_inventory,
@@ -33,3 +36,27 @@ def test_next_and_days_until():
     assert next_collection(dates, today) == date(2026,8,19)
     assert days_until(dates, today) == 1
     assert days_until((), today) is None
+
+
+def test_next_collection_for_each_waste_type():
+    schedules = (
+        Schedule(
+            Container("P-1", WasteType.PAPER),
+            (date(2026, 8, 20), date(2026, 9, 1)),
+        ),
+        Schedule(
+            Container("P-2", WasteType.PAPER),
+            (date(2026, 8, 19),),
+        ),
+        Schedule(Container("S-1", WasteType.GLASS), (date(2026, 8, 25),)),
+    )
+
+    assert next_collection_for_waste(
+        schedules, WasteType.PAPER, date(2026, 8, 19)
+    ) == (date(2026, 8, 19), "P-2")
+    assert (
+        next_collection_for_waste(
+            schedules, WasteType.MIXED, date(2026, 8, 19)
+        )
+        is None
+    )
