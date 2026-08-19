@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -44,12 +44,20 @@ def normalize_date(value: Any) -> date | None:
         return value.date()
     if isinstance(value, date):
         return value
+    if isinstance(value, (int, float)):
+        try:
+            timestamp = value / 1000 if abs(value) >= 100_000_000_000 else value
+            return datetime.fromtimestamp(timestamp, UTC).date()
+        except (OverflowError, OSError, ValueError):
+            return None
     text = str(value).strip()
     if not text:
         return None
     if text.startswith("/Date("):
         try:
-            return datetime.fromtimestamp(int(re.search(r"-?\d+", text).group()) / 1000).date()  # type: ignore[union-attr]
+            return datetime.fromtimestamp(
+                int(re.search(r"-?\d+", text).group()) / 1000, UTC
+            ).date()  # type: ignore[union-attr]
         except (AttributeError, ValueError, OSError):
             return None
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%d/%m/%Y", "%d.%m.%Y"):
