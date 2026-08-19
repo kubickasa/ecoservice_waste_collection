@@ -25,9 +25,9 @@
       },
       "confirm": {
         "title": "Confirmation",
-        "description": "Municipality: {municipality}\nAddress: {address}\nContainers and next collection dates: {summary}",
+        "description": "Municipality: {municipality}\nAddress: {address}\nContainers and next collection dates: {summary}\n\nTo retrieve collection, weight, and billing data from the VASA self-service portal, select the consent checkbox.",
         "data": {
-          "vasa_enabled": "Connect to the VASA self-service portal"
+          "vasa_enabled": "I want VASA self-service data and consent to this integration using my login credentials"
         }
       },
       "vasa": {
@@ -56,7 +56,7 @@
           "municipality": "Municipality",
           "address": "Address",
           "containers": "Containers",
-          "vasa_enabled": "Connect to the VASA self-service portal",
+          "vasa_enabled": "I want VASA self-service data and consent to this integration using my login credentials",
           "vasa_username": "Username (email)",
           "vasa_password": "Password"
         }

@@ -19,7 +19,7 @@ from .const import (
     UPDATE_INTERVAL,
     VASA_HISTORY_LIMIT,
 )
-from .models import CollectionRecord, Container, Schedule, WasteType
+from .models import CollectionRecord, Container, PayableInvoice, Schedule, WasteType
 from .vasa_api import VasaApi, VasaApiError
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,7 +30,9 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
         super().__init__(hass, logger=_LOGGER, name=DOMAIN, update_interval=UPDATE_INTERVAL)
         self.entry, self.api, self.vasa_api = entry, api, vasa_api
         self.histories: dict[str, tuple[CollectionRecord, ...]] = {}
+        self.payable_invoices: tuple[PayableInvoice, ...] = ()
         self.vasa_available = vasa_api is None
+        self.vasa_billing_available = vasa_api is None
         self.last_successful_update: datetime | None = None
         self.store: Store[dict[str, Any]] = Store(hass, 2, f"{DOMAIN}.{entry.entry_id}")
 
@@ -41,6 +43,10 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
         self.last_successful_update = datetime.fromisoformat(cached["updated"])
         self.data = {key: Schedule(Container(key, WasteType(value["waste_type"]), value.get("capacity")), tuple(date.fromisoformat(item) for item in value["dates"])) for key, value in cached["schedules"].items()}
         self.histories = {key: tuple(CollectionRecord(date.fromisoformat(item["date"]), key, item["servicing"], item.get("reason"), item.get("weight_kg")) for item in values) for key, values in cached.get("histories", {}).items()}
+        self.payable_invoices = tuple(
+            PayableInvoice(item["invoice_number"], float(item["amount"]))
+            for item in cached.get("payable_invoices", [])
+        )
 
     async def _async_update_data(self) -> dict[str, Schedule]:
         try:
@@ -55,7 +61,12 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
             except VasaApiError:
                 self.vasa_available = False
                 _LOGGER.warning("VASA history refresh failed; cached history was retained")
+            try:
+                self.payable_invoices = await self.vasa_api.payable_invoices()
+                self.vasa_billing_available = True
+            except VasaApiError:
+                self.vasa_billing_available = False
+                _LOGGER.warning("VASA billing refresh failed; cached invoices were retained")
         self.last_successful_update = datetime.now(UTC)
-        await self.store.async_save({"updated": self.last_successful_update.isoformat(), "source": SOURCE_URL, "schedules": {key: {"waste_type": value.container.waste_type.value, "capacity": value.container.capacity, "dates": [item.isoformat() for item in value.dates]} for key, value in schedules.items()}, "histories": {key: [{"date": item.date.isoformat(), "servicing": item.servicing, "reason": item.reason, "weight_kg": item.weight_kg} for item in values] for key, values in self.histories.items()}})
+        await self.store.async_save({"updated": self.last_successful_update.isoformat(), "source": SOURCE_URL, "schedules": {key: {"waste_type": value.container.waste_type.value, "capacity": value.container.capacity, "dates": [item.isoformat() for item in value.dates]} for key, value in schedules.items()}, "histories": {key: [{"date": item.date.isoformat(), "servicing": item.servicing, "reason": item.reason, "weight_kg": item.weight_kg} for item in values] for key, values in self.histories.items()}, "payable_invoices": [{"invoice_number": item.invoice_number, "amount": item.amount} for item in self.payable_invoices]})
         return schedules
-

@@ -57,21 +57,24 @@ Nukopijuokite katalogą `custom_components/ecoservice_waste_collection` į savo 
 
 7. Pasirinkite vieną ar kelis su adresu susietus konteinerius.
 8. Patikrinkite artimiausių išvežimų santrauką.
-9. Jei reikia faktinių svorių, pažymėkite **Prisijungti prie VASA savitarnos** ir įveskite VASA el. paštą bei slaptažodį.
+9. Jei norite gauti faktinių išvežimų, svorių ir mokėtinų sąskaitų duomenis, pažymėkite aiškaus sutikimo varnelę **Noriu gauti duomenis iš VASA savitarnos...** ir įveskite VASA el. paštą bei slaptažodį. Nepažymėjus varnelės VASA užklausos nevykdomos.
 
 Nustatymus vėliau galima keisti integracijos **Configure** lange nešalinant integracijos.
 
 ## Sukuriami objektai
 
-Sukuriamas vienas bendras kalendorius adresui ir kiekvieno konteinerio jutiklis „Dienų iki išvežimo“. Visi objektai priklauso vienam įrenginiui. Adresas ir inventoriniai numeriai lieka vietinėje HA instancijoje; telemetrijos nėra.
+Sukuriamas vienas bendras kalendorius adresui, bendras **Artimiausias atliekų surinkimas** datos jutiklis ir kiekvieno konteinerio jutiklis „Dienų iki išvežimo“. Visi objektai priklauso vienam įrenginiui. Adresas ir inventoriniai numeriai lieka vietinėje HA instancijoje; telemetrijos nėra.
 
-Pažymėjus **„Prisijungti prie VASA savitarnos“**, integracija kartą per parą paima pasirinktų konteinerių faktinio aptarnavimo istoriją: datą, aptarnavimo būseną, priežastį ir svorį. Iki 100 įrašų vienam konteineriui saugoma vietiniame HA `Store`. Papildomas jutiklis **„Paskutinis faktinis išvežimas“** rodo atliekų rūšį, o jo atributas `weight_kg` – paskutinį svorį.
+Pažymėjus VASA sutikimo varnelę, integracija kartą per parą paima pasirinktų konteinerių faktinio aptarnavimo istoriją: datą, aptarnavimo būseną, priežastį ir svorį. Iki 100 įrašų vienam konteineriui saugoma vietiniame HA `Store`. Papildomas jutiklis **„Paskutinis faktinis išvežimas“** rodo atliekų rūšį, o jo atributas `weight_kg` – paskutinį svorį.
+
+Kiekvienai atliekų rūšiai (popierius, stiklas ir bendrosios atliekos) sukuriamas atskiras paskutinio sėkmingo išvežimo datos ir to išvežimo svorio jutiklis. Jutiklis **VASA mokėtina suma** rodo bendrą mokėtiną sumą eurais, o atribute `invoices` pateikia atskirus sąskaitų numerius bei sumas.
 
 Taip pat sukuriami einamųjų metų suminiai svorio jutikliai `this_year_paper_weight`, `this_year_glass_weight` ir `this_year_mixed_waste_weight`. Į sumą įtraukiami tik VASA įrašai, kurių aptarnavimo būsena yra „Aptarnautas“ ir pateiktas svoris.
 
 - Vienas visos dienos įvykių kalendorius su visais pasirinktais konteineriais.
+- Vienas datos jutiklis, rodantis artimiausią visų pasirinktų konteinerių planinį išvežimą.
 - Kiekvienam konteineriui – jutiklis, rodantis dienas iki artimiausio planinio išvežimo.
-- Įjungus VASA – `Paskutinis faktinis išvežimas` ir trys einamųjų metų svorio jutikliai kilogramais.
+- Įjungus VASA – po tris paskutinio išvežimo datos ir svorio jutiklius, mokėtinos sumos jutiklis, `Paskutinis faktinis išvežimas` ir trys einamųjų metų svorio jutikliai kilogramais.
 - Konteinerio jutiklio `collection_history` atribute saugoma iki 100 naujausių VASA istorijos įrašų.
 
 Tikslūs `entity_id` gali turėti adreso ar įrenginio priešdėlį ir gali būti pakeisti HA objektų registre. `unique_id` išlieka stabilūs.
@@ -109,7 +112,8 @@ Jei duomenys neatsinaujina, patikrinkite, ar ataskaita atsidaro naršyklėje, HA
 3. Pagal sutartį gauna rinkliavos objektus ir jų konteinerių lenteles.
 4. Pasirinktiems konteineriams gauna išvežimo istoriją: datą, aptarnavimo būseną, priežastį ir svorį.
 5. Tik būsena **Aptarnautas** įtraukiama į metines svorio sumas.
-6. Duomenys atnaujinami kartą per 24 valandas ir saugomi vietinėje versijuotoje HA saugykloje. Laikinos klaidos metu ankstesnė istorija neištrinama.
+6. Iš `InvoiceAndPayment/GetPayableInvoicesList` gauna mokėtinas sąskaitas ir susumuoja jų likučius.
+7. Duomenys atnaujinami kartą per 24 valandas ir saugomi vietinėje versijuotoje HA saugykloje. Laikinos klaidos metu ankstesnė istorija ar sąskaitos neištrinamos.
 
 ### Dažniausios problemos
 
@@ -139,4 +143,4 @@ Unofficial Home Assistant integration for the public Ecoservice Lithuania collec
 
 The source is an unauthenticated Power BI Publish-to-web report, not an official supported API. The client discovers report metadata and queries its semantic model. Changes to the report schema, publication status, Power BI protocol, or result-size limits can break discovery. No telemetry is sent; address and inventory identifiers are stored only in the local Home Assistant instance.
 
-Optional VASA login adds daily actual-service history and a latest actual collection sensor. Credentials remain in the local Home Assistant config entry and are never exposed through logs or entity attributes. VASA two-factor and government-gateway login are not supported.
+The integration also creates a date sensor for the nearest scheduled collection across all selected containers. Optional VASA consent and login add daily actual-service history, separate latest collection date and weight sensors for paper, glass, and mixed waste, and a payable-amount sensor whose attributes list the individual invoices. No VASA request is made without consent; disabling VASA removes the stored credentials. Credentials are never exposed through logs or entity attributes. VASA two-factor and government-gateway login are not supported.
