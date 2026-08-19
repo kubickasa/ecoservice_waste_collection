@@ -1,1 +1,74 @@
-{"title":"Waste Collection Ecoservice Lithuania","config":{"step":{"user":{"title":"Savivaldybė","data":{"municipality":"Savivaldybė"}},"address_search":{"title":"Adreso paieška","description":"Įrašykite gatvę, namo numerį arba kitą adreso dalį savivaldybėje {municipality}.","data":{"address_search":"Ieškoti adreso"}},"address":{"title":"Pasirinkite adresą","description":"Pasirinkite tikslų adresą iš rastų rezultatų. Jei jo nėra, grįžkite atgal ir patikslinkite paiešką.","data":{"address":"Adresas"}},"containers":{"title":"Konteineriai","data":{"containers":"Konteineriai"}},"confirm":{"title":"Patvirtinimas","data":{"vasa_enabled":"Prisijungti prie VASA savitarnos"}},"vasa":{"title":"VASA savitarna","data":{"vasa_username":"Prisijungimo vardas (el. paštas)","vasa_password":"Slaptažodis"}}},"error":{"cannot_connect":"Nepavyko prisijungti.","invalid_municipality":"Pasirinkite savivaldybę iš siūlomų variantų.","address_not_found":"Pagal įvestą tekstą adresų nerasta. Patikslinkite paiešką.","invalid_address":"Adresas nerastas.","container_not_found":"Konteinerių nerasta.","empty_schedule":"Grafikas tuščias.","vasa_auth_failed":"Nepavyko prisijungti prie VASA."}}}
+{
+  "title": "Waste Collection Ecoservice Lithuania",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Savivaldybė",
+        "description": "Pradėkite rašyti savivaldybės pavadinimą arba pasirinkite ją iš sąrašo.",
+        "data": {
+          "municipality": "Savivaldybė"
+        }
+      },
+      "address_search": {
+        "title": "Adreso paieška",
+        "description": "Įrašykite gatvę, namo numerį arba kitą adreso dalį savivaldybėje {municipality}.",
+        "data": {
+          "address_search": "Ieškoti adreso"
+        }
+      },
+      "address": {
+        "title": "Pasirinkite adresą",
+        "description": "Pasirinkite tikslų adresą iš rastų rezultatų. Jei jo nėra, grįžkite atgal ir patikslinkite paiešką.",
+        "data": {
+          "address": "Adresas"
+        }
+      },
+      "containers": {
+        "title": "Konteineriai",
+        "description": "Pasirinkite vieną ar kelis konteinerius.",
+        "data": {
+          "containers": "Konteineriai"
+        }
+      },
+      "confirm": {
+        "title": "Patvirtinimas",
+        "description": "Savivaldybė: {municipality}\nAdresas: {address}\nKonteineriai ir artimiausios datos: {summary}",
+        "data": {
+          "vasa_enabled": "Prisijungti prie VASA savitarnos"
+        }
+      },
+      "vasa": {
+        "title": "VASA savitarna",
+        "description": "Prisijungimas tikrinamas VASA serveryje. Duomenys saugomi tik jūsų Home Assistant konfigūracijoje.",
+        "data": {
+          "vasa_username": "Prisijungimo vardas (el. paštas)",
+          "vasa_password": "Slaptažodis"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nepavyko pasiekti viešos Ecoservice ataskaitos.",
+      "invalid_municipality": "Pasirinkite savivaldybę iš siūlomų variantų.",
+      "address_not_found": "Pagal įvestą tekstą adresų nerasta. Patikslinkite paiešką.",
+      "invalid_address": "Adresas nerastas.",
+      "container_not_found": "Konteinerių nerasta.",
+      "empty_schedule": "Pasirinktiems konteineriams datų nerasta.",
+      "vasa_auth_failed": "Nepavyko prisijungti prie VASA. Patikrinkite prisijungimo duomenis ir ar paskyrai nereikia papildomo patvirtinimo."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Keisti nustatymus",
+        "data": {
+          "municipality": "Savivaldybė",
+          "address": "Adresas",
+          "containers": "Konteineriai",
+          "vasa_enabled": "Prisijungti prie VASA savitarnos",
+          "vasa_username": "Prisijungimo vardas (el. paštas)",
+          "vasa_password": "Slaptažodis"
+        }
+      }
+    }
+  }
+}
