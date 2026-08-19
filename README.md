@@ -47,7 +47,7 @@ Nukopijuokite katalogą `custom_components/ecoservice_waste_collection` į savo 
 
    ![Savivaldybės pasirinkimas](docs/images/setup/04-select-municipality.png)
 
-5. Adreso paieškoje įrašykite gatvę, namo numerį arba kitą adreso dalį. Kitame lange pasirinkite tikslų adresą iš trumpo rastų rezultatų sąrašo. Rodomi tik pasirinktos savivaldybės adresai, o vienu metu pateikiama iki 100 atitikmenų.
+5. Pradėkite rašyti gatvę, namo numerį ar kitą adreso dalį ir pasirinkite pasiūlytą tikslų adresą. Nieko neįvedę galite slinkti per visą pasirinktos savivaldybės adresų sąrašą.
 
    ![Adreso įvedimas](docs/images/setup/05-enter-address.png)
 
