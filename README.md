@@ -43,7 +43,7 @@ Nukopijuokite katalogą `custom_components/ecoservice_waste_collection` į savo 
 
    ![Ecoservice integracijos paieška](docs/images/setup/03-search-ecoservice.png)
 
-4. Pasirinkite savivaldybę iš viešos „Ecoservice“ ataskaitos ir tęskite.
+4. Pradėkite rašyti savivaldybės pavadinimą ir pasirinkite pasiūlytą variantą arba, nieko neįvedę, pasirinkite savivaldybę iš slenkamo sąrašo.
 
    ![Savivaldybės pasirinkimas](docs/images/setup/04-select-municipality.png)
 

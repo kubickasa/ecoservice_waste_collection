@@ -36,6 +36,7 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self.values: dict[str, Any] = {}
         self.api: EcoserviceApi | None = None
+        self._municipalities: list[str] = []
         self._addresses: list[str] = []
         self._address_matches: list[str] = []
         self._containers = []
@@ -44,11 +45,49 @@ class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None) -> ConfigFlowResult:
         self.api = self.api or EcoserviceApi(async_get_clientsession(self.hass))
         errors = {}
-        try: municipalities = await self.api.municipalities()
-        except EcoserviceApiError: municipalities, errors = [], {"base":"cannot_connect"}
-        if user_input:
-            self.values.update(user_input); return await self.async_step_address_search()
-        return self.async_show_form(step_id="user", data_schema=vol.Schema({vol.Required(CONF_MUNICIPALITY): SelectSelector(SelectSelectorConfig(options=municipalities, mode=SelectSelectorMode.DROPDOWN))}), errors=errors)
+        if not self._municipalities:
+            try:
+                self._municipalities = await self.api.municipalities()
+            except EcoserviceApiError:
+                errors["base"] = "cannot_connect"
+
+        submitted_municipality = ""
+        if user_input is not None:
+            submitted_municipality = user_input[CONF_MUNICIPALITY].strip()
+            municipality = next(
+                (
+                    option
+                    for option in self._municipalities
+                    if option.casefold() == submitted_municipality.casefold()
+                ),
+                None,
+            )
+            if municipality is not None:
+                self.values[CONF_MUNICIPALITY] = municipality
+                return await self.async_step_address_search()
+            if "base" not in errors:
+                errors["base"] = "invalid_municipality"
+
+        municipality_field = (
+            vol.Required(CONF_MUNICIPALITY, default=submitted_municipality)
+            if submitted_municipality
+            else vol.Required(CONF_MUNICIPALITY)
+        )
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    municipality_field: SelectSelector(
+                        SelectSelectorConfig(
+                            options=self._municipalities,
+                            mode=SelectSelectorMode.DROPDOWN,
+                            custom_value=True,
+                        )
+                    )
+                }
+            ),
+            errors=errors,
+        )
 
     async def async_step_address_search(self, user_input=None) -> ConfigFlowResult:
         assert self.api
