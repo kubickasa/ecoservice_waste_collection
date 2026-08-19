@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from . import EcoserviceConfigEntry
 from .const import CONF_ADDRESS, CONF_MUNICIPALITY
@@ -29,15 +30,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: EcoserviceConfigEntry, a
 
 class EcoserviceCalendar(EcoserviceEntity, CalendarEntity):
     _attr_name = "Atliekų išvežimo kalendorius"
+    _attr_entity_registry_enabled_default = True
+    _attr_entity_registry_visible_default = True
+
     def __init__(self, entry: EcoserviceConfigEntry) -> None:
         super().__init__(entry)
         self._attr_unique_id = f"{entry.entry_id}_calendar"
 
     @property
     def event(self):
-        now = datetime.now().astimezone()
+        now = dt_util.now()
         events = build_events(self.entry, now, now + timedelta(days=366))
         return events[0] if events else None
+
+    @property
+    def extra_state_attributes(self):
+        now = dt_util.now()
+        events = build_events(self.entry, now, now + timedelta(days=366))[:20]
+        return {
+            "upcoming_events": [
+                {
+                    "date": event.start,
+                    "summary": event.summary,
+                    "location": event.location,
+                }
+                for event in events
+            ],
+            "next_collection_date": events[0].start if events else None,
+        }
 
     async def async_get_events(self, hass: HomeAssistant, start_date: datetime, end_date: datetime) -> list[CalendarEvent]:
         return build_events(self.entry, start_date, end_date)
@@ -45,4 +65,3 @@ class EcoserviceCalendar(EcoserviceEntity, CalendarEntity):
     def _handle_coordinator_update(self) -> None:
         self.async_write_ha_state()
         self.async_update_listeners()
-

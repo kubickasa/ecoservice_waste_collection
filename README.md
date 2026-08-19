@@ -63,7 +63,7 @@ Nustatymus vėliau galima keisti integracijos **Configure** lange nešalinant in
 
 ## Sukuriami objektai
 
-Sukuriamas vienas bendras kalendorius adresui, bendras **Artimiausias atliekų surinkimas** datos jutiklis, trys atskiri kito popieriaus, stiklo ir bendrųjų atliekų surinkimo datos jutikliai bei kiekvieno konteinerio jutiklis „Dienų iki išvežimo“. Visi objektai priklauso vienam įrenginiui. Adresas ir inventoriniai numeriai lieka vietinėje HA instancijoje; telemetrijos nėra.
+Sukuriamas vienas bendras, pagal nutylėjimą įjungtas ir matomas kalendorius adresui, bendras **Artimiausias atliekų surinkimas** datos jutiklis, trys atskiri kito popieriaus, stiklo ir bendrųjų atliekų surinkimo datos jutikliai bei kiekvieno konteinerio jutiklis „Dienų iki išvežimo“. Kalendoriaus `upcoming_events` atribute pateikiama iki 20 artimiausių išvežimų. Visi objektai priklauso vienam įrenginiui. Adresas ir inventoriniai numeriai lieka vietinėje HA instancijoje; telemetrijos nėra.
 
 Pažymėjus VASA sutikimo varnelę, integracija kartą per parą paima pasirinktų konteinerių faktinio aptarnavimo istoriją: datą, aptarnavimo būseną, priežastį ir svorį. Iki 100 įrašų vienam konteineriui saugoma vietiniame HA `Store`. Papildomas jutiklis **„Paskutinis faktinis išvežimas“** rodo atliekų rūšį, o jo atributas `weight_kg` – paskutinį svorį.
 
