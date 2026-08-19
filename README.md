@@ -43,11 +43,11 @@ Nukopijuokite katalogą `custom_components/ecoservice_waste_collection` į savo 
 
    ![Ecoservice integracijos paieška](docs/images/setup/03-search-ecoservice.png)
 
-4. Pasirinkite savivaldybę iš viešos „Ecoservice“ ataskaitos ir tęskite.
+4. Pradėkite rašyti savivaldybės pavadinimą ir pasirinkite pasiūlytą variantą arba, nieko neįvedę, pasirinkite savivaldybę iš slenkamo sąrašo.
 
    ![Savivaldybės pasirinkimas](docs/images/setup/04-select-municipality.png)
 
-5. Adreso dropdown laukelyje pradėkite rašyti gatvę ar adresą ir pasirinkite tikslų rezultatą iš sąrašo. Rodomi tik pasirinktos savivaldybės adresai.
+5. Adreso paieškoje įrašykite gatvę, namo numerį arba kitą adreso dalį. Kitame lange pasirinkite tikslų adresą iš trumpo rastų rezultatų sąrašo. Rodomi tik pasirinktos savivaldybės adresai, o vienu metu pateikiama iki 100 atitikmenų.
 
    ![Adreso įvedimas](docs/images/setup/05-enter-address.png)
 
