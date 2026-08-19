@@ -14,6 +14,8 @@ from aiohttp import ClientError, ClientSession, ClientTimeout
 from .const import REPORT_URL
 from .models import Container, Schedule, normalize_dates, waste_type_from_inventory
 
+ADDRESS_QUERY_LIMIT = 100_000
+
 
 class EcoserviceApiError(Exception):
     """Public report could not be queried."""
@@ -191,7 +193,11 @@ class EcoserviceApi:
 
     async def addresses(self, municipality: str, search: str | None = None) -> list[str]:
         meta = await self._load_metadata()
-        rows = await self._query([meta.address], {meta.municipality: municipality})
+        rows = await self._query(
+            [meta.address],
+            {meta.municipality: municipality},
+            count=ADDRESS_QUERY_LIMIT,
+        )
         values = sorted(
             {str(r[0]).strip() for r in rows if r[0]}, key=natural_sort_key
         )
