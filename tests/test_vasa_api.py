@@ -13,6 +13,31 @@ from custom_components.ecoservice_waste_collection.vasa_api import (
 )
 
 
+class _Response:
+    def __init__(self, status, payload):
+        self.status = status
+        self._payload = payload
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return None
+
+    async def json(self, content_type=None):
+        return self._payload
+
+
+class _Session:
+    def __init__(self, responses):
+        self.responses = iter(responses)
+        self.authorization_headers = []
+
+    def request(self, method, url, headers, **kwargs):
+        self.authorization_headers.append(headers.get("Authorization"))
+        return next(self.responses)
+
+
 def test_parse_anonymized_vasa_history():
     payload = {
         "result": {
@@ -112,3 +137,21 @@ def test_payable_invoices_uses_vasa_billing_endpoint():
 
     assert requested == [("GET", "/api/services/app/InvoiceAndPayment/GetPayableInvoicesList")]
     assert invoices[0].amount == 50.08
+
+
+def test_expired_vasa_token_is_refreshed_and_request_retried_once():
+    session = _Session(
+        [
+            _Response(401, {}),
+            _Response(200, {"result": {"accessToken": "new-token"}}),
+            _Response(200, {"result": {"ok": True}}),
+        ]
+    )
+    api = VasaApi(session, "user", "password")
+    api._token = "expired-token"
+
+    payload = asyncio.run(api._json("GET", "/api/services/app/Test"))
+
+    assert payload == {"result": {"ok": True}}
+    assert api._token == "new-token"
+    assert session.authorization_headers == ["Bearer expired-token", None, "Bearer new-token"]

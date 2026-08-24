@@ -4,7 +4,7 @@ from datetime import timedelta
 
 DOMAIN = "ecoservice_waste_collection"
 NAME = "Waste Collection Ecoservice Lithuania"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 REPORT_URL = "https://app.powerbi.com/view?r=eyJrIjoiNjY4OWNlMDYtODVmNC00YzIzLWJhZjAtMzE4YzA4N2ZkNDg2IiwidCI6IjNjNmM1MmUyLTkwMzUtNGZmMy1hNmFjLTc2YmQ0ZTY2NzNiMiIsImMiOjl9"
 SOURCE_URL = "https://ecoservice.lt/grafikai/"
 UPDATE_INTERVAL = timedelta(hours=24)
@@ -17,4 +17,4 @@ CONF_VASA_PASSWORD = "vasa_password"
 VASA_BASE_URL = "https://savitarna.vasa.lt"
 VASA_API_URL = "https://SavitarnaAPI.vasa.lt"
 VASA_HISTORY_LIMIT = 100
-PLATFORMS = ["calendar", "sensor"]
+PLATFORMS = ["binary_sensor", "calendar", "sensor"]

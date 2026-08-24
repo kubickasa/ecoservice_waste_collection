@@ -39,8 +39,12 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
         self.entry, self.api, self.vasa_api = entry, api, vasa_api
         self.histories: dict[str, tuple[CollectionRecord, ...]] = {}
         self.payable_invoices: tuple[PayableInvoice, ...] = ()
+        self.api_available = False
+        self.api_error: str | None = None
         self.vasa_available = vasa_api is None
         self.vasa_billing_available = vasa_api is None
+        self.vasa_connected = vasa_api is None
+        self.vasa_error: str | None = None
         self.last_successful_update: datetime | None = None
         self.store: Store[dict[str, Any]] = Store(hass, 2, f"{DOMAIN}.{entry.entry_id}")
 
@@ -77,21 +81,33 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
                 list(self.entry.data[CONF_CONTAINERS]),
             )
         except EcoserviceApiError as err:
-            raise UpdateFailed(str(err)) from err
+            self.api_available = False
+            self.api_error = str(err)
+            schedules = None
+        else:
+            self.api_available = True
+            self.api_error = None
         if self.vasa_api:
+            vasa_errors: list[str] = []
             try:
                 histories = await self.vasa_api.histories(list(self.entry.data[CONF_CONTAINERS]))
                 self.histories = {key: tuple(values[:VASA_HISTORY_LIMIT]) for key, values in histories.items()}
                 self.vasa_available = True
-            except VasaApiError:
+            except VasaApiError as err:
                 self.vasa_available = False
+                vasa_errors.append(f"history: {err}")
                 _LOGGER.warning("VASA history refresh failed; cached history was retained")
             try:
                 self.payable_invoices = await self.vasa_api.payable_invoices()
                 self.vasa_billing_available = True
-            except VasaApiError:
+            except VasaApiError as err:
                 self.vasa_billing_available = False
+                vasa_errors.append(f"billing: {err}")
                 _LOGGER.warning("VASA billing refresh failed; cached invoices were retained")
+            self.vasa_connected = self.vasa_available or self.vasa_billing_available
+            self.vasa_error = "; ".join(vasa_errors) or None
+        if schedules is None:
+            raise UpdateFailed(self.api_error or "Ecoservice API refresh failed")
         self.last_successful_update = datetime.now(UTC)
         await self.store.async_save(
             {

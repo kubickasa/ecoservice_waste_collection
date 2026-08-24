@@ -13,6 +13,7 @@ Waste Collection Ecoservice Lithuania is a Home Assistant custom integration for
 - An enabled-by-default calendar containing all scheduled collection dates.
 - A nearest-collection date sensor and separate next-collection sensors for each supported waste type.
 - A days-until-collection sensor for every selected container.
+- Diagnostic connection statuses for the public Ecoservice API and, when configured, VASA.
 - Optional VASA sensors for the latest collection date, latest collected weight, yearly weight, and payable amount.
 - Daily refresh with local caching of the last successfully retrieved data.
 - English and Lithuanian configuration-flow translations.
@@ -103,6 +104,11 @@ When VASA access is enabled, the integration additionally creates:
 - A current-year collected weight sensor for each supported waste type.
 - A latest actual collection summary sensor.
 - A payable amount sensor in EUR, with individual invoice numbers and amounts in its attributes.
+
+Two diagnostic connectivity entities make source failures easier to distinguish:
+
+- **Ecoservice API connection** reports whether the latest public schedule request succeeded.
+- **VASA connection** reports whether at least one VASA data endpoint succeeded. Its attributes show history and billing endpoint states separately. Expired VASA access tokens are renewed automatically once before a request is marked failed.
 - Up to 100 locally cached collection-history records per selected container.
 
 Exact entity IDs are assigned by Home Assistant and may include an address or device prefix. Unique IDs remain stable for a config entry.

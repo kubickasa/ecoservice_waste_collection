@@ -168,7 +168,7 @@ class VasaApi:
         self._timeout = ClientTimeout(total=timeout, connect=min(timeout, 10))
         self._token: str | None = None
 
-    async def _json(self, method: str, path: str, **kwargs: Any) -> Any:
+    async def _json(self, method: str, path: str, _retry_auth: bool = True, **kwargs: Any) -> Any:
         headers = {"Accept": "application/json"}
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"
@@ -178,6 +178,10 @@ class VasaApi:
                     method, f"{VASA_API_URL}{path}", headers=headers, timeout=self._timeout, **kwargs
                 ) as response:
                     if response.status in (401, 403):
+                        if self._token and _retry_auth:
+                            self._token = None
+                            await self.authenticate()
+                            return await self._json(method, path, _retry_auth=False, **kwargs)
                         raise VasaAuthenticationError("VASA authentication failed")
                     if response.status >= 400:
                         raise VasaApiError(f"VASA returned HTTP {response.status}")
