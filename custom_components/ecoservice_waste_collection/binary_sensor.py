@@ -47,7 +47,9 @@ class EcoserviceApiConnectionSensor(ConnectionStatusEntity):
     def extra_state_attributes(self):
         return {
             "endpoint": SOURCE_URL,
-            "last_successful_update": self.coordinator.last_successful_update,
+            "data_complete": self.coordinator.ecoservice_data_complete,
+            "next_refresh_interval": self.coordinator.update_interval,
+            "last_successful_update": self.coordinator.ecoservice_last_successful_update,
             "last_error": self.coordinator.api_error,
         }
 
@@ -70,5 +72,8 @@ class VasaConnectionSensor(ConnectionStatusEntity):
             "endpoint": VASA_API_URL,
             "history_api_available": self.coordinator.vasa_available,
             "billing_api_available": self.coordinator.vasa_billing_available,
+            "data_complete": self.coordinator.vasa_data_complete,
+            "next_refresh_interval": self.coordinator.update_interval,
+            "last_successful_update": self.coordinator.vasa_last_successful_update,
             "last_error": self.coordinator.vasa_error,
         }

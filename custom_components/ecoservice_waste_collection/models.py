@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from enum import StrEnum
@@ -111,6 +111,16 @@ def next_collection_for_waste(
         if schedule.container.waste_type is waste_type and (day := next_collection(schedule.dates, today)) is not None
     )
     return min(candidates, key=lambda item: item[0], default=None)
+
+
+def schedules_have_upcoming_collections(
+    schedules: Mapping[str, Schedule], inventories: Iterable[str], today: date
+) -> bool:
+    """Return whether every selected container has at least one upcoming date."""
+    return all(
+        inventory in schedules and next_collection(schedules[inventory].dates, today) is not None
+        for inventory in inventories
+    )
 
 
 def days_until(dates: tuple[date, ...], today: date) -> int | None:

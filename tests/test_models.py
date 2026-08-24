@@ -9,6 +9,7 @@ from custom_components.ecoservice_waste_collection.models import (
     next_collection_for_waste,
     normalize_date,
     normalize_dates,
+    schedules_have_upcoming_collections,
     waste_type_from_inventory,
 )
 
@@ -53,3 +54,14 @@ def test_next_collection_for_each_waste_type():
 
     assert next_collection_for_waste(schedules, WasteType.PAPER, date(2026, 8, 19)) == (date(2026, 8, 19), "P-2")
     assert next_collection_for_waste(schedules, WasteType.MIXED, date(2026, 8, 19)) is None
+
+
+def test_all_selected_containers_need_an_upcoming_date_for_complete_data():
+    schedules = {
+        "P-1": Schedule(Container("P-1", WasteType.PAPER), (date(2026, 8, 20),)),
+        "S-1": Schedule(Container("S-1", WasteType.GLASS), (date(2026, 8, 18),)),
+    }
+
+    assert schedules_have_upcoming_collections(schedules, ["P-1"], date(2026, 8, 19))
+    assert not schedules_have_upcoming_collections(schedules, ["P-1", "S-1"], date(2026, 8, 19))
+    assert not schedules_have_upcoming_collections(schedules, ["P-1", "L-1"], date(2026, 8, 19))

@@ -15,11 +15,19 @@ from .const import (
     CONF_CONTAINERS,
     CONF_MUNICIPALITY,
     DOMAIN,
+    INCOMPLETE_UPDATE_INTERVAL,
     SOURCE_URL,
     UPDATE_INTERVAL,
     VASA_HISTORY_LIMIT,
 )
-from .models import CollectionRecord, Container, PayableInvoice, Schedule, WasteType
+from .models import (
+    CollectionRecord,
+    Container,
+    PayableInvoice,
+    Schedule,
+    WasteType,
+    schedules_have_upcoming_collections,
+)
 from .vasa_api import VasaApi, VasaApiError
 
 _LOGGER = logging.getLogger(__name__)
@@ -41,10 +49,14 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
         self.payable_invoices: tuple[PayableInvoice, ...] = ()
         self.api_available = False
         self.api_error: str | None = None
+        self.ecoservice_data_complete = False
         self.vasa_available = vasa_api is None
         self.vasa_billing_available = vasa_api is None
         self.vasa_connected = vasa_api is None
         self.vasa_error: str | None = None
+        self.vasa_data_complete = vasa_api is None
+        self.ecoservice_last_successful_update: datetime | None = None
+        self.vasa_last_successful_update: datetime | None = None
         self.last_successful_update: datetime | None = None
         self.store: Store[dict[str, Any]] = Store(hass, 2, f"{DOMAIN}.{entry.entry_id}")
 
@@ -52,7 +64,12 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
         cached = await self.store.async_load()
         if not cached:
             return
-        self.last_successful_update = datetime.fromisoformat(cached["updated"])
+        ecoservice_updated = cached.get("ecoservice_updated", cached.get("updated"))
+        if ecoservice_updated:
+            self.ecoservice_last_successful_update = datetime.fromisoformat(ecoservice_updated)
+            self.last_successful_update = self.ecoservice_last_successful_update
+        if vasa_updated := cached.get("vasa_updated"):
+            self.vasa_last_successful_update = datetime.fromisoformat(vasa_updated)
         self.data = {
             key: Schedule(
                 Container(key, WasteType(value["waste_type"]), value.get("capacity")),
@@ -83,16 +100,24 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
         except EcoserviceApiError as err:
             self.api_available = False
             self.api_error = str(err)
+            self.ecoservice_data_complete = False
             schedules = None
         else:
             self.api_available = True
             self.api_error = None
+            self.ecoservice_data_complete = schedules_have_upcoming_collections(
+                schedules,
+                self.entry.data[CONF_CONTAINERS],
+                date.today(),
+            )
+        vasa_succeeded = False
         if self.vasa_api:
             vasa_errors: list[str] = []
             try:
                 histories = await self.vasa_api.histories(list(self.entry.data[CONF_CONTAINERS]))
                 self.histories = {key: tuple(values[:VASA_HISTORY_LIMIT]) for key, values in histories.items()}
                 self.vasa_available = True
+                vasa_succeeded = True
             except VasaApiError as err:
                 self.vasa_available = False
                 vasa_errors.append(f"history: {err}")
@@ -100,18 +125,30 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
             try:
                 self.payable_invoices = await self.vasa_api.payable_invoices()
                 self.vasa_billing_available = True
+                vasa_succeeded = True
             except VasaApiError as err:
                 self.vasa_billing_available = False
                 vasa_errors.append(f"billing: {err}")
                 _LOGGER.warning("VASA billing refresh failed; cached invoices were retained")
             self.vasa_connected = self.vasa_available or self.vasa_billing_available
             self.vasa_error = "; ".join(vasa_errors) or None
+            self.vasa_data_complete = self.vasa_available and self.vasa_billing_available
+        all_data_complete = self.ecoservice_data_complete and self.vasa_data_complete
+        self.update_interval = UPDATE_INTERVAL if all_data_complete else INCOMPLETE_UPDATE_INTERVAL
         if schedules is None:
             raise UpdateFailed(self.api_error or "Ecoservice API refresh failed")
-        self.last_successful_update = datetime.now(UTC)
+        updated = datetime.now(UTC)
+        self.ecoservice_last_successful_update = updated
+        self.last_successful_update = updated
+        if vasa_succeeded:
+            self.vasa_last_successful_update = updated
         await self.store.async_save(
             {
-                "updated": self.last_successful_update.isoformat(),
+                "updated": updated.isoformat(),
+                "ecoservice_updated": updated.isoformat(),
+                "vasa_updated": (
+                    self.vasa_last_successful_update.isoformat() if self.vasa_last_successful_update else None
+                ),
                 "source": SOURCE_URL,
                 "schedules": {
                     key: {

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
-from homeassistant.const import UnitOfMass, UnitOfTime
+from homeassistant.const import EntityCategory, UnitOfMass, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -35,12 +35,13 @@ WASTE_SENSOR_NAMES = {
 async def async_setup_entry(
     hass: HomeAssistant, entry: EcoserviceConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    entities = [NextCollectionDateSensor(entry)]
+    entities = [NextCollectionDateSensor(entry), EcoserviceLastUpdateSensor(entry)]
     entities.extend(
         NextWasteTypeCollectionDateSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES
     )
     entities.extend(EcoserviceSensor(entry, inventory) for inventory in entry.data[CONF_CONTAINERS])
     if entry.data.get(CONF_VASA_ENABLED):
+        entities.append(VasaLastUpdateSensor(entry))
         entities.append(VasaLastCollectionSensor(entry))
         entities.extend(VasaYearWeightSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
         entities.extend(VasaLastWeightSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
@@ -49,6 +50,52 @@ async def async_setup_entry(
         )
         entities.append(VasaPayableAmountSensor(entry))
     async_add_entities(entities)
+
+
+class LastUpdateSensor(EcoserviceEntity, SensorEntity):
+    """Keep the last successful source update visible during connection failures."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:clock-check-outline"
+
+    @property
+    def available(self) -> bool:
+        return True
+
+
+class EcoserviceLastUpdateSensor(LastUpdateSensor):
+    _attr_name = "Last update from Ecoservice"
+    _attr_suggested_object_id = "last_update_from_ecoservice"
+
+    def __init__(self, entry: EcoserviceConfigEntry) -> None:
+        super().__init__(entry)
+        self._attr_unique_id = f"{entry.entry_id}_last_update_from_ecoservice"
+
+    @property
+    def native_value(self):
+        return self.coordinator.ecoservice_last_successful_update
+
+    @property
+    def extra_state_attributes(self):
+        return {"data_source": SOURCE_URL}
+
+
+class VasaLastUpdateSensor(LastUpdateSensor):
+    _attr_name = "Last update from VASA"
+    _attr_suggested_object_id = "last_update_from_vasa"
+
+    def __init__(self, entry: EcoserviceConfigEntry) -> None:
+        super().__init__(entry)
+        self._attr_unique_id = f"{entry.entry_id}_last_update_from_vasa"
+
+    @property
+    def native_value(self):
+        return self.coordinator.vasa_last_successful_update
+
+    @property
+    def extra_state_attributes(self):
+        return {"data_source": VASA_BASE_URL}
 
 
 def _records_for_waste(entry: EcoserviceConfigEntry, waste_type: WasteType):
