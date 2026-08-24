@@ -6,7 +6,6 @@ REQUIRED_STEPS = {
     "user": "municipality",
     "address": "address",
     "containers": "containers",
-    "confirm": "vasa_enabled",
     "vasa": "vasa_username",
 }
 REQUIRED_ERRORS = {
@@ -14,7 +13,6 @@ REQUIRED_ERRORS = {
     "invalid_municipality",
     "invalid_address",
     "container_not_found",
-    "empty_schedule",
     "vasa_auth_failed",
 }
 

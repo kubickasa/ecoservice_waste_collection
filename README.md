@@ -1,6 +1,6 @@
 # Waste Collection Ecoservice Lithuania
 
-Waste Collection Ecoservice Lithuania is a Home Assistant custom integration for scheduled waste collections in Lithuania. It reads the public collection report linked from the [Ecoservice schedules page](https://ecoservice.lt/grafikai/) and can optionally retrieve collection history, weights, and payable invoices from the VASA self-service portal.
+Waste Collection Ecoservice Lithuania is a Home Assistant custom integration for scheduled waste collections in Lithuania. During initial setup it uses the [Ecoservice schedules page](https://ecoservice.lt/grafikai/) only to find container inventory numbers. After setup, collection calendars, history, weights, and payable invoices are retrieved exclusively from the VASA self-service portal.
 
 > [!IMPORTANT]
 > This is an unofficial community integration. It is not affiliated with, endorsed by, or supported by Ecoservice, VASA, Microsoft, or Home Assistant.
@@ -13,8 +13,9 @@ Waste Collection Ecoservice Lithuania is a Home Assistant custom integration for
 - An enabled-by-default calendar containing all scheduled collection dates.
 - A nearest-collection date sensor and separate next-collection sensors for each supported waste type.
 - A days-until-collection sensor for every selected container.
-- Diagnostic connection statuses for the public Ecoservice API and, when configured, VASA.
-- Optional VASA sensors for the latest collection date, latest collected weight, yearly weight, and payable amount.
+- A diagnostic VASA connection status.
+- VASA sensors for the latest collection date, latest collected weight, yearly weight, and payable amount.
+- Upcoming dates from each selected container's own VASA calendar.
 - Hourly refresh while source data is incomplete, then daily refresh, with local caching of the last successfully retrieved data.
 - English and Lithuanian configuration-flow translations.
 
@@ -84,10 +85,10 @@ Configure the integration entirely through the Home Assistant UI:
 
    ![Submit the selected address](docs/images/setup/06-submit-address.png)
 
-7. Select one or more containers and review the next collection dates.
-8. Optionally consent to VASA access and enter the VASA username and password. No VASA request is made unless the consent checkbox is selected.
+7. Select one or more containers. Ecoservice is used only through this step to obtain their inventory numbers.
+8. Enter the required VASA username and password. All subsequent updates use VASA only.
 
-The integration uses one config entry per municipality/address pair. Open **Configure** on the integration entry to update the selected containers or VASA settings later.
+The integration uses one config entry per municipality/address pair. Open **Configure** on the integration entry to update the selected inventory numbers or VASA credentials later.
 
 ## Calendar and sensors
 
@@ -98,29 +99,29 @@ The integration creates one device for the selected address and exposes:
 - **Next paper collection**, **Next glass collection**, and **Next mixed-waste collection** — the next date for each waste type.
 - One **Days until collection** sensor for each selected container. Attributes include the next date, up to ten upcoming dates, municipality, address, inventory number, waste type, source, and last successful update.
 
-When VASA access is enabled, the integration additionally creates:
+The integration also creates:
 
 - A latest successful collection date and latest collected weight sensor for each of paper, glass, and mixed waste.
+- A latest service-attempt status for each waste type, including unsuccessful-service reasons such as a container not being put out.
 - A current-year collected weight sensor for each supported waste type.
 - A latest actual collection summary sensor.
 - A payable amount sensor in EUR, with individual invoice numbers and amounts in its attributes.
 
-Two diagnostic connectivity entities make source failures easier to distinguish:
+The diagnostic entities show VASA status:
 
-- **Ecoservice API connection** reports whether the latest public schedule request succeeded.
 - **VASA connection** reports whether at least one VASA data endpoint succeeded. Its attributes show history and billing endpoint states separately. Expired VASA access tokens are renewed automatically once before a request is marked failed.
-- **Last update from Ecoservice** and **Last update from VASA** show when data was last retrieved successfully from each source and applied to Home Assistant. The timestamps survive restarts and remain visible during connection failures.
+- **Last update from VASA** shows when VASA data was last retrieved successfully and applied to Home Assistant. The timestamp survives restarts and remains visible during connection failures.
 
-The integration retries every hour until every selected Ecoservice container has an upcoming collection date and both VASA history and billing requests succeed. Once those conditions are met, it returns to the normal 24-hour interval. A genuinely absent collection or weight record does not keep the integration in hourly retry mode.
+The integration retries every hour until every selected container has an upcoming VASA collection date and both VASA history and billing requests succeed. Once those conditions are met, it returns to the normal 24-hour interval. A genuinely absent collection or weight record does not keep the integration in hourly retry mode.
 - Up to 100 locally cached collection-history records per selected container.
 
 Exact entity IDs are assigned by Home Assistant and may include an address or device prefix. Unique IDs remain stable for a config entry.
 
 ## Data refresh
 
-Schedule and optional VASA data are refreshed every **24 hours**. A manual entity update or integration reload can request an earlier refresh. The last successfully retrieved schedules and optional VASA results are stored in Home Assistant's local storage and retained when an external service is temporarily unavailable.
+VASA data is refreshed every **24 hours**, or every hour while required data is incomplete. A manual entity update or integration reload can request an earlier refresh. The last successfully retrieved VASA results are stored in Home Assistant's local storage and retained when VASA is temporarily unavailable.
 
-The schedule client reads the public Microsoft Power BI Publish-to-web report used by the Ecoservice schedules page. This is not a documented or stable Ecoservice API. Changes to the report, its schema, publication state, or service limits can temporarily break the integration.
+The public Microsoft Power BI Publish-to-web report used by the Ecoservice schedules page is contacted only during initial configuration to discover container inventory numbers. It is not contacted by normal background refreshes.
 
 ## Troubleshooting
 
@@ -132,7 +133,7 @@ The schedule client reads the public Microsoft Power BI Publish-to-web report us
 
 ### No collection dates are found
 
-- Confirm that the same municipality, address, and inventory number display dates on the source page.
+- Confirm that each selected inventory number appears under the same VASA account and that its VASA calendar contains future dates.
 - Reload the integration from **Settings → Devices & services**.
 - Review Home Assistant logs for `ecoservice_waste_collection`.
 
@@ -161,9 +162,9 @@ Search existing [GitHub Issues](https://github.com/kubickasa/ecoservice_waste_co
 ## Privacy and disclaimer
 
 - No telemetry is sent by this integration.
-- Municipality, address, container identifiers, schedules, and optional VASA results are stored in the local Home Assistant instance.
+- Municipality, address, container identifiers, and VASA results are stored in the local Home Assistant instance.
 - VASA credentials are stored in the Home Assistant config entry under `.storage`; they are not exposed as entity attributes or intentionally written to logs. Protect the Home Assistant filesystem and backups.
-- Enabling VASA authorizes this integration to send the supplied credentials directly to VASA and retrieve data available to that account.
+- Configuring the integration authorizes it to send the supplied credentials directly to VASA and retrieve data available to that account.
 - Public Power BI and VASA endpoints are third-party services and may change without notice.
 - Use the integration at your own risk. The maintainers are not responsible for missed collections, billing decisions, data loss, or service availability.
 

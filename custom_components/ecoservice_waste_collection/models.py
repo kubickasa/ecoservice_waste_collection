@@ -146,3 +146,8 @@ def latest_serviced_record(
         key=lambda item: item.date,
         default=None,
     )
+
+
+def latest_collection_record(records: Iterable[CollectionRecord]) -> CollectionRecord | None:
+    """Return the latest collection attempt, including unsuccessful attempts."""
+    return max(records, key=lambda item: item.date, default=None)

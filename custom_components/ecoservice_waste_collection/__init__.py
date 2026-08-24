@@ -3,25 +3,38 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import EcoserviceApi
-from .const import CONF_VASA_ENABLED, CONF_VASA_PASSWORD, CONF_VASA_USERNAME, PLATFORMS
+from .const import CONF_VASA_PASSWORD, CONF_VASA_USERNAME, DOMAIN, PLATFORMS
 from .coordinator import EcoserviceCoordinator
 from .vasa_api import VasaApi
 
 type EcoserviceConfigEntry = ConfigEntry[EcoserviceCoordinator]
 
 
+async def async_migrate_entry(hass: HomeAssistant, entry: EcoserviceConfigEntry) -> bool:
+    if entry.version < 2:
+        registry = er.async_get(hass)
+        legacy_entities = (
+            (Platform.BINARY_SENSOR, f"{entry.entry_id}_ecoservice_api_connection"),
+            (Platform.SENSOR, f"{entry.entry_id}_last_update_from_ecoservice"),
+        )
+        for platform, unique_id in legacy_entities:
+            if entity_id := registry.async_get_entity_id(platform, DOMAIN, unique_id):
+                registry.async_remove(entity_id)
+        hass.config_entries.async_update_entry(entry, version=2)
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: EcoserviceConfigEntry) -> bool:
     session = async_get_clientsession(hass)
-    vasa_api = (
-        VasaApi(session, entry.data[CONF_VASA_USERNAME], entry.data[CONF_VASA_PASSWORD])
-        if entry.data.get(CONF_VASA_ENABLED)
-        else None
-    )
-    coordinator = EcoserviceCoordinator(hass, entry, EcoserviceApi(session), vasa_api)
+    username = entry.data.get(CONF_VASA_USERNAME)
+    password = entry.data.get(CONF_VASA_PASSWORD)
+    if not username or not password:
+        raise ConfigEntryAuthFailed("VASA credentials are required")
+    coordinator = EcoserviceCoordinator(hass, entry, VasaApi(session, username, password))
     await coordinator.async_load_cached()
     try:
         await coordinator.async_config_entry_first_refresh()

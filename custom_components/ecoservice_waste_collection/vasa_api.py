@@ -4,12 +4,13 @@ import asyncio
 import re
 import unicodedata
 from collections.abc import Iterable
+from datetime import date
 from typing import Any
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
 
 from .const import VASA_API_URL
-from .models import CollectionRecord, PayableInvoice, normalize_date
+from .models import CollectionRecord, PayableInvoice, normalize_date, normalize_dates
 
 
 class VasaApiError(Exception):
@@ -160,6 +161,14 @@ def parse_collection_records(payload: Any, inventory: str) -> tuple[CollectionRe
     return tuple(sorted(records, key=lambda item: item.date, reverse=True))
 
 
+def parse_calendar_dates(payload: Any) -> tuple[date, ...]:
+    """Parse the dates highlighted in a VASA container calendar."""
+    value = _unwrap(payload)
+    if isinstance(value, dict):
+        value = value.get("dates", [])
+    return normalize_dates(value if isinstance(value, list) else [])
+
+
 class VasaApi:
     def __init__(self, session: ClientSession, username: str, password: str, timeout: float = 30) -> None:
         self._session = session
@@ -205,12 +214,15 @@ class VasaApi:
             raise VasaAuthenticationError("VASA credentials require verification or were rejected")
         self._token = str(token)
 
-    async def histories(self, inventories: list[str]) -> dict[str, tuple[CollectionRecord, ...]]:
+    async def histories_and_calendars(
+        self, inventories: list[str]
+    ) -> tuple[dict[str, tuple[CollectionRecord, ...]], dict[str, tuple[date, ...]]]:
         if not self._token:
             await self.authenticate()
         session = await self._json("GET", "/api/services/app/Session/GetCurrentLoginInformations")
         contracts = session.get("result", {}).get("availableContracts", [])
         collected: dict[str, list[CollectionRecord]] = {item: [] for item in inventories}
+        calendars: dict[str, tuple[date, ...]] = {item: () for item in inventories}
         for contract in contracts:
             contract_id = contract.get("contractId") or contract.get("id")
             if contract_id is None:
@@ -249,6 +261,16 @@ class VasaApi:
                     row_id = row.get("id") or row.get("Id") or values.get("id")
                     if row_id is None:
                         continue
+                    calendar = await self._json(
+                        "GET",
+                        "/api/services/app/Orders/GetCalendarDates",
+                        params={
+                            "Id": row_id,
+                            "ContractId": contract_id,
+                            "TollObjectId": toll_id,
+                        },
+                    )
+                    calendars[inventory] = parse_calendar_dates(calendar)
                     details = await self._json(
                         "GET",
                         "/api/services/app/Orders/GetSelectableRowObject",
@@ -261,10 +283,15 @@ class VasaApi:
                         },
                     )
                     collected[inventory].extend(parse_collection_records(details, inventory))
-        return {
+        histories = {
             inventory: tuple(sorted(set(records), key=lambda item: item.date, reverse=True))
             for inventory, records in collected.items()
         }
+        return histories, calendars
+
+    async def histories(self, inventories: list[str]) -> dict[str, tuple[CollectionRecord, ...]]:
+        histories, _ = await self.histories_and_calendars(inventories)
+        return histories
 
     async def payable_invoices(self) -> tuple[PayableInvoice, ...]:
         if not self._token:

@@ -23,16 +23,9 @@
           "containers": "Konteineriai"
         }
       },
-      "confirm": {
-        "title": "Patvirtinimas",
-        "description": "Savivaldybė: {municipality}\nAdresas: {address}\nKonteineriai ir artimiausios datos: {summary}\n\nJei norite gauti išvežimų, svorių ir sąskaitų duomenis iš VASA savitarnos, pažymėkite sutikimo varnelę.",
-        "data": {
-          "vasa_enabled": "Noriu gauti duomenis iš VASA savitarnos ir sutinku, kad integracija naudotų mano prisijungimo duomenis"
-        }
-      },
       "vasa": {
         "title": "VASA savitarna",
-        "description": "Prisijungimas tikrinamas VASA serveryje. Duomenys saugomi tik jūsų Home Assistant konfigūracijoje.",
+        "description": "Ecoservice jau panaudotas tik konteinerių inventoriniams numeriams rasti. Toliau visi kalendoriaus, išvežimų, svorių ir sąskaitų duomenys bus gaunami tik iš VASA. Prisijungimas tikrinamas VASA serveryje, o duomenys saugomi tik jūsų Home Assistant konfigūracijoje.",
         "data": {
           "vasa_username": "Prisijungimo vardas (el. paštas)",
           "vasa_password": "Slaptažodis"
@@ -44,7 +37,6 @@
       "invalid_municipality": "Pasirinkite savivaldybę iš siūlomų variantų.",
       "invalid_address": "Adresas nerastas.",
       "container_not_found": "Konteinerių nerasta.",
-      "empty_schedule": "Pasirinktiems konteineriams datų nerasta.",
       "vasa_auth_failed": "Nepavyko prisijungti prie VASA. Patikrinkite prisijungimo duomenis ir ar paskyrai nereikia papildomo patvirtinimo."
     }
   },
@@ -56,7 +48,6 @@
           "municipality": "Savivaldybė",
           "address": "Adresas",
           "containers": "Konteineriai",
-          "vasa_enabled": "Noriu gauti duomenis iš VASA savitarnos ir sutinku, kad integracija naudotų mano prisijungimo duomenis",
           "vasa_username": "Prisijungimo vardas (el. paštas)",
           "vasa_password": "Slaptažodis"
         }

@@ -3,11 +3,13 @@ from datetime import date
 
 from custom_components.ecoservice_waste_collection.models import (
     CollectionRecord,
+    latest_collection_record,
     latest_serviced_record,
     yearly_serviced_weight,
 )
 from custom_components.ecoservice_waste_collection.vasa_api import (
     VasaApi,
+    parse_calendar_dates,
     parse_collection_records,
     parse_payable_invoices,
 )
@@ -67,6 +69,53 @@ def test_parse_anonymized_vasa_history():
     assert records[1].reason == "Neišstumtas konteineris"
 
 
+def test_parse_vasa_container_calendar_dates():
+    payload = {"result": {"dates": ["2026-09-05T00:00:00", "2026-09-19T00:00:00", "2026-10-03T00:00:00"]}}
+
+    assert parse_calendar_dates(payload) == (
+        date(2026, 9, 5),
+        date(2026, 9, 19),
+        date(2026, 10, 3),
+    )
+
+
+def test_vasa_calendar_is_requested_for_the_matching_container_row():
+    requested = []
+
+    class StubApi(VasaApi):
+        async def _json(self, method, path, **kwargs):
+            requested.append((path, kwargs.get("params")))
+            if path.endswith("GetCurrentLoginInformations"):
+                return {"result": {"availableContracts": [{"contractId": 10}]}}
+            if path.endswith("GetTollObjectsListByContractId"):
+                return {"result": [{"id": 20}]}
+            if path.endswith("GetSelectableTable"):
+                return {
+                    "result": [
+                        {
+                            "id": 30,
+                            "allColumnsValues": {"Konteinerio Nr.": "13-P-103319"},
+                        }
+                    ]
+                }
+            if path.endswith("GetCalendarDates"):
+                return {"result": {"dates": ["2026-09-05", "2026-09-19"]}}
+            if path.endswith("GetSelectableRowObject"):
+                return {"result": {"items": []}}
+            raise AssertionError(path)
+
+    api = StubApi(None, "user", "password")
+    api._token = "token"
+
+    _, calendars = asyncio.run(api.histories_and_calendars(["13-P-103319"]))
+
+    assert calendars["13-P-103319"] == (date(2026, 9, 5), date(2026, 9, 19))
+    assert (
+        "/api/services/app/Orders/GetCalendarDates",
+        {"Id": 30, "ContractId": 10, "TollObjectId": 20},
+    ) in requested
+
+
 def test_yearly_weight_counts_only_successful_services():
     records = (
         CollectionRecord(date(2026, 1, 2), "00-P-000001", "Aptarnautas", None, 12.5),
@@ -76,6 +125,17 @@ def test_yearly_weight_counts_only_successful_services():
     )
     assert yearly_serviced_weight(records, 2026) == 12.5
     assert latest_serviced_record(records) == records[3]
+    assert latest_collection_record(records) == records[3]
+
+
+def test_latest_collection_record_includes_unsuccessful_attempt():
+    records = (
+        CollectionRecord(date(2026, 8, 8), "00-P-000001", "Aptarnautas", None, 6),
+        CollectionRecord(date(2026, 8, 22), "00-P-000001", "Neaptarnautas", "Neišstumtas konteineris", 0),
+    )
+
+    assert latest_serviced_record(records) == records[0]
+    assert latest_collection_record(records) == records[1]
 
 
 def test_parse_vasa_payable_invoices_and_total():

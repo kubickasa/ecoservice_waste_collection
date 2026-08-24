@@ -8,12 +8,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import EcoserviceConfigEntry
-from .const import CONF_ADDRESS, CONF_CONTAINERS, CONF_MUNICIPALITY, CONF_VASA_ENABLED, SOURCE_URL, VASA_BASE_URL
+from .const import CONF_ADDRESS, CONF_CONTAINERS, CONF_MUNICIPALITY, VASA_BASE_URL
 from .entity import EcoserviceEntity
 from .models import (
     WASTE_NAMES,
     WasteType,
     days_until,
+    latest_collection_record,
     latest_serviced_record,
     next_collection,
     next_collection_for_waste,
@@ -35,20 +36,16 @@ WASTE_SENSOR_NAMES = {
 async def async_setup_entry(
     hass: HomeAssistant, entry: EcoserviceConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    entities = [NextCollectionDateSensor(entry), EcoserviceLastUpdateSensor(entry)]
+    entities = [NextCollectionDateSensor(entry), VasaLastUpdateSensor(entry), VasaLastCollectionSensor(entry)]
     entities.extend(
         NextWasteTypeCollectionDateSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES
     )
     entities.extend(EcoserviceSensor(entry, inventory) for inventory in entry.data[CONF_CONTAINERS])
-    if entry.data.get(CONF_VASA_ENABLED):
-        entities.append(VasaLastUpdateSensor(entry))
-        entities.append(VasaLastCollectionSensor(entry))
-        entities.extend(VasaYearWeightSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
-        entities.extend(VasaLastWeightSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
-        entities.extend(
-            VasaLastCollectionDateSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES
-        )
-        entities.append(VasaPayableAmountSensor(entry))
+    entities.extend(VasaYearWeightSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
+    entities.extend(VasaLastWeightSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
+    entities.extend(VasaLastServiceStatusSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
+    entities.extend(VasaLastCollectionDateSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
+    entities.append(VasaPayableAmountSensor(entry))
     async_add_entities(entities)
 
 
@@ -62,23 +59,6 @@ class LastUpdateSensor(EcoserviceEntity, SensorEntity):
     @property
     def available(self) -> bool:
         return True
-
-
-class EcoserviceLastUpdateSensor(LastUpdateSensor):
-    _attr_name = "Last update from Ecoservice"
-    _attr_suggested_object_id = "last_update_from_ecoservice"
-
-    def __init__(self, entry: EcoserviceConfigEntry) -> None:
-        super().__init__(entry)
-        self._attr_unique_id = f"{entry.entry_id}_last_update_from_ecoservice"
-
-    @property
-    def native_value(self):
-        return self.coordinator.ecoservice_last_successful_update
-
-    @property
-    def extra_state_attributes(self):
-        return {"data_source": SOURCE_URL}
 
 
 class VasaLastUpdateSensor(LastUpdateSensor):
@@ -136,7 +116,9 @@ class NextCollectionDateSensor(EcoserviceEntity, SensorEntity):
             "days_until_collection": (item[0] - date.today()).days if item else None,
             "inventory_number": item[1] if item else None,
             "waste_type": item[2].container.waste_type.value if item else None,
-            "data_source": SOURCE_URL,
+            "data_source": self.coordinator.schedule_sources.get(item[1], f"{VASA_BASE_URL}/orders")
+            if item
+            else f"{VASA_BASE_URL}/orders",
         }
 
 
@@ -167,7 +149,11 @@ class NextWasteTypeCollectionDateSensor(EcoserviceEntity, SensorEntity):
             "days_until_collection": (item[0] - date.today()).days if item else None,
             "inventory_number": item[1] if item else None,
             "waste_type": self.waste_type.value,
-            "data_source": SOURCE_URL,
+            "data_source": (
+                self.coordinator.schedule_sources.get(item[1], f"{VASA_BASE_URL}/orders")
+                if item
+                else f"{VASA_BASE_URL}/orders"
+            ),
         }
 
 
@@ -201,7 +187,7 @@ class EcoserviceSensor(EcoserviceEntity, SensorEntity):
             "address": self.entry.data[CONF_ADDRESS],
             "upcoming_collection_dates": upcoming,
             "last_successful_update": self.coordinator.last_successful_update,
-            "data_source": SOURCE_URL,
+            "data_source": self.coordinator.schedule_sources.get(self.inventory, f"{VASA_BASE_URL}/orders"),
             "collection_history": [
                 {"date": item.date, "servicing": item.servicing, "reason": item.reason, "weight_kg": item.weight_kg}
                 for item in history
@@ -350,7 +336,58 @@ class VasaLastCollectionDateSensor(EcoserviceEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         latest = self.latest
+        latest_attempt = latest_collection_record(_records_for_waste(self.entry, self.waste_type))
         return {
+            "weight_kg": latest.weight_kg if latest else None,
+            "inventory_number": latest.inventory_number if latest else None,
+            "waste_type": self.waste_type.value,
+            "latest_attempt_date": latest_attempt.date if latest_attempt else None,
+            "latest_attempt_status": latest_attempt.servicing if latest_attempt else None,
+            "latest_attempt_reason": latest_attempt.reason if latest_attempt else None,
+            "data_source": f"{VASA_BASE_URL}/orders",
+        }
+
+
+class VasaLastServiceStatusSensor(EcoserviceEntity, SensorEntity):
+    """Show the latest VASA service attempt, including why it failed."""
+
+    def __init__(self, entry: EcoserviceConfigEntry, waste_type: WasteType, slug: str) -> None:
+        super().__init__(entry)
+        self.waste_type = waste_type
+        self._attr_unique_id = f"{entry.entry_id}_last_{slug}_service_status"
+        self._attr_suggested_object_id = f"last_{slug}_service_status"
+        self._attr_name = f"Paskutinis {WASTE_SENSOR_NAMES[waste_type]} aptarnavimas"
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.coordinator.vasa_available
+
+    @property
+    def latest(self):
+        return latest_collection_record(_records_for_waste(self.entry, self.waste_type))
+
+    @property
+    def native_value(self) -> str | None:
+        latest = self.latest
+        if latest is None:
+            return None
+        state = f"{latest.servicing} – {latest.reason}" if latest.reason else latest.servicing
+        return state[:255]
+
+    @property
+    def icon(self) -> str:
+        latest = self.latest
+        if latest and latest.servicing.casefold().strip() != "aptarnautas":
+            return "mdi:trash-can-alert"
+        return "mdi:trash-can-check"
+
+    @property
+    def extra_state_attributes(self):
+        latest = self.latest
+        return {
+            "service_date": latest.date if latest else None,
+            "servicing": latest.servicing if latest else None,
+            "reason": latest.reason if latest else None,
             "weight_kg": latest.weight_kg if latest else None,
             "inventory_number": latest.inventory_number if latest else None,
             "waste_type": self.waste_type.value,

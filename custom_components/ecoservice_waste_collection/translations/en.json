@@ -23,16 +23,9 @@
           "containers": "Containers"
         }
       },
-      "confirm": {
-        "title": "Confirmation",
-        "description": "Municipality: {municipality}\nAddress: {address}\nContainers and next collection dates: {summary}\n\nTo retrieve collection, weight, and billing data from the VASA self-service portal, select the consent checkbox.",
-        "data": {
-          "vasa_enabled": "I want VASA self-service data and consent to this integration using my login credentials"
-        }
-      },
       "vasa": {
         "title": "VASA self-service",
-        "description": "The credentials are verified by the VASA server and stored only in your Home Assistant configuration.",
+        "description": "Ecoservice has now been used only to find the container inventory numbers. From this point on, all calendar, collection, weight, and billing data is retrieved exclusively from VASA. The credentials are verified by the VASA server and stored only in your Home Assistant configuration.",
         "data": {
           "vasa_username": "Username (email)",
           "vasa_password": "Password"
@@ -44,7 +37,6 @@
       "invalid_municipality": "Select a municipality from the suggested options.",
       "invalid_address": "Address not found.",
       "container_not_found": "No containers found.",
-      "empty_schedule": "No collection dates found for the selected containers.",
       "vasa_auth_failed": "Could not sign in to VASA. Check the credentials and whether the account requires additional verification."
     }
   },
@@ -56,7 +48,6 @@
           "municipality": "Municipality",
           "address": "Address",
           "containers": "Containers",
-          "vasa_enabled": "I want VASA self-service data and consent to this integration using my login credentials",
           "vasa_username": "Username (email)",
           "vasa_password": "Password"
         }

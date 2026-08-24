@@ -20,12 +20,16 @@ def build_events(entry: EcoserviceConfigEntry, start: datetime, end: datetime) -
         for day in schedule.dates:
             if start_date <= day < end_date:
                 label = WASTE_NAMES[schedule.container.waste_type]
+                source = entry.runtime_data.schedule_sources.get(schedule.container.inventory_number, "")
                 events.append(
                     CalendarEvent(
                         start=day,
                         end=day + timedelta(days=1),
                         summary=f"{label} išvežimas – {schedule.container.inventory_number}",
-                        description=f"{entry.data[CONF_MUNICIPALITY]}, {entry.data[CONF_ADDRESS]}; {label}; {schedule.container.inventory_number}",
+                        description=(
+                            f"{entry.data[CONF_MUNICIPALITY]}, {entry.data[CONF_ADDRESS]}; "
+                            f"{label}; {schedule.container.inventory_number}; {source}"
+                        ),
                         location=entry.data[CONF_ADDRESS],
                     )
                 )
