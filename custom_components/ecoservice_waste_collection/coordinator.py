@@ -32,9 +32,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
-    def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, vasa_api: VasaApi
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, vasa_api: VasaApi) -> None:
         super().__init__(
             hass,
             logger=_LOGGER,
@@ -133,7 +131,9 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
         schedules_complete = schedules is not None and schedules_have_upcoming_collections(
             schedules, inventories, date.today()
         )
-        self.update_interval = UPDATE_INTERVAL if schedules_complete and self.vasa_data_complete else INCOMPLETE_UPDATE_INTERVAL
+        self.update_interval = (
+            UPDATE_INTERVAL if schedules_complete and self.vasa_data_complete else INCOMPLETE_UPDATE_INTERVAL
+        )
         if schedules is None:
             raise UpdateFailed(self.vasa_error or "VASA collection schedule was unavailable")
         updated = datetime.now(UTC)

@@ -48,7 +48,7 @@ def normalize_date(value: Any) -> date | None:
         try:
             timestamp = value / 1000 if abs(value) >= 100_000_000_000 else value
             return datetime.fromtimestamp(timestamp, UTC).date()
-        except (OverflowError, OSError, ValueError):
+        except OverflowError, OSError, ValueError:
             return None
     text = str(value).strip()
     if not text:
@@ -56,7 +56,7 @@ def normalize_date(value: Any) -> date | None:
     if text.startswith("/Date("):
         try:
             return datetime.fromtimestamp(int(re.search(r"-?\d+", text).group()) / 1000, UTC).date()  # type: ignore[union-attr]
-        except (AttributeError, ValueError, OSError):
+        except AttributeError, ValueError, OSError:
             return None
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%d/%m/%Y", "%d.%m.%Y"):
         try:
