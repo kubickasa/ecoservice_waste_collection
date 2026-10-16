@@ -1,15 +1,18 @@
 from datetime import date
 
 from custom_components.ecoservice_waste_collection.models import (
+    CollectionRecord,
     Container,
     Schedule,
     WasteType,
     days_until,
+    history_waste_types,
     next_collection,
     next_collection_for_waste,
     normalize_date,
     normalize_dates,
     schedules_have_upcoming_collections,
+    selected_waste_types,
     waste_type_from_inventory,
 )
 
@@ -18,7 +21,8 @@ def test_waste_type_inventory_formats():
     assert waste_type_from_inventory("12-L-0001") is WasteType.MIXED
     assert waste_type_from_inventory("p123") is WasteType.PAPER
     assert waste_type_from_inventory(" 99_s_42") is WasteType.GLASS
-    assert waste_type_from_inventory("94-Z-300544") is WasteType.UNKNOWN
+    assert waste_type_from_inventory("13-Z-000001") is WasteType.GREEN
+    assert waste_type_from_inventory("94-X-300544") is WasteType.UNKNOWN
     assert waste_type_from_inventory("12345") is WasteType.UNKNOWN
 
 
@@ -65,3 +69,18 @@ def test_all_selected_containers_need_an_upcoming_date_for_complete_data():
     assert schedules_have_upcoming_collections(schedules, ["P-1"], date(2026, 8, 19))
     assert not schedules_have_upcoming_collections(schedules, ["P-1", "S-1"], date(2026, 8, 19))
     assert not schedules_have_upcoming_collections(schedules, ["P-1", "L-1"], date(2026, 8, 19))
+
+
+def test_waste_sensor_types_follow_selected_containers():
+    assert selected_waste_types(["12-L-0001", "13-Z-000001"]) == {WasteType.MIXED, WasteType.GREEN}
+    assert selected_waste_types([]) == set()
+
+
+def test_history_sensor_types_need_vasa_source_or_history():
+    vasa = "https://savitarna.vasa.lt/orders"
+    sources = {"12-L-0001": vasa, "13-Z-000001": "https://ecoservice.lt/grafikai/", "14-P-0002": "other"}
+    histories = {"14-P-0002": (CollectionRecord(date(2026, 8, 1), "14-P-0002", "Aptarnautas", None, 10.0),)}
+    inventories = ["12-L-0001", "13-Z-000001", "14-P-0002"]
+
+    assert history_waste_types(inventories, sources, histories, vasa) == {WasteType.MIXED, WasteType.PAPER}
+    assert history_waste_types(["13-Z-000001"], sources, {"13-Z-000001": ()}, vasa) == set()

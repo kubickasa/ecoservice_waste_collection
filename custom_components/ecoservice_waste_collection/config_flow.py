@@ -34,7 +34,7 @@ from .vasa_api import VasaApi, VasaApiError
 
 
 class EcoserviceConfigFlow(ConfigFlow, domain=DOMAIN):
-    VERSION = 2
+    VERSION = 3
 
     def __init__(self) -> None:
         self.values: dict[str, Any] = {}

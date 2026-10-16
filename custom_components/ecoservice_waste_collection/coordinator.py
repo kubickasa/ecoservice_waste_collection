@@ -6,13 +6,18 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from .api import EcoserviceApi, EcoserviceApiError
 from .const import (
+    CONF_ADDRESS,
     CONF_CONTAINERS,
+    CONF_MUNICIPALITY,
     DOMAIN,
     INCOMPLETE_UPDATE_INTERVAL,
+    SOURCE_URL,
     UPDATE_INTERVAL,
     VASA_BASE_URL,
     VASA_HISTORY_LIMIT,
@@ -22,7 +27,6 @@ from .models import (
     Container,
     PayableInvoice,
     Schedule,
-    WasteType,
     schedules_have_upcoming_collections,
     waste_type_from_inventory,
 )
@@ -41,6 +45,7 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
             config_entry=entry,
         )
         self.entry, self.vasa_api = entry, vasa_api
+        self.ecoservice_api = EcoserviceApi(async_get_clientsession(hass))
         self.histories: dict[str, tuple[CollectionRecord, ...]] = {}
         self.payable_invoices: tuple[PayableInvoice, ...] = ()
         self.schedule_sources: dict[str, str] = {}
@@ -61,18 +66,20 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
         if vasa_updated := cached.get("vasa_updated"):
             self.vasa_last_successful_update = datetime.fromisoformat(vasa_updated)
             self.last_successful_update = self.vasa_last_successful_update
-        vasa_source = f"{VASA_BASE_URL}/orders"
-        vasa_schedules = {
-            key: Schedule(
-                Container(key, WasteType(value["waste_type"]), value.get("capacity")),
-                tuple(date.fromisoformat(item) for item in value["dates"]),
-            )
-            for key, value in cached["schedules"].items()
-            if value.get("source") == vasa_source
+        accepted_sources = {f"{VASA_BASE_URL}/orders", SOURCE_URL}
+        cached_schedules = {
+            key: value for key, value in cached["schedules"].items() if value.get("source") in accepted_sources
         }
-        if vasa_schedules:
-            self.data = vasa_schedules
-        self.schedule_sources = {key: vasa_source for key in vasa_schedules}
+        if cached_schedules:
+            # Older caches stored green containers as unknown, so derive the type again.
+            self.data = {
+                key: Schedule(
+                    Container(key, waste_type_from_inventory(key), value.get("capacity")),
+                    tuple(date.fromisoformat(item) for item in value["dates"]),
+                )
+                for key, value in cached_schedules.items()
+            }
+        self.schedule_sources = {key: value["source"] for key, value in cached_schedules.items()}
         self.histories = {
             key: tuple(
                 CollectionRecord(
@@ -119,21 +126,19 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
             self.vasa_billing_available = False
             vasa_errors.append(f"billing: {err}")
             _LOGGER.warning("VASA billing refresh failed; cached invoices were retained")
+        if schedules is not None:
+            await self._async_fallback_schedules(schedules, schedule_sources)
         self.vasa_connected = self.vasa_available or self.vasa_billing_available
         self.vasa_error = "; ".join(vasa_errors) or None
+        vasa_inventories = [inventory for inventory in inventories if schedule_sources[inventory] == schedule_source]
         self.vasa_data_complete = (
             self.vasa_available
             and self.vasa_calendar_available
             and self.vasa_billing_available
             and schedules is not None
-            and schedules_have_upcoming_collections(schedules, inventories, date.today())
+            and schedules_have_upcoming_collections(schedules, vasa_inventories, date.today())
         )
-        schedules_complete = schedules is not None and schedules_have_upcoming_collections(
-            schedules, inventories, date.today()
-        )
-        self.update_interval = (
-            UPDATE_INTERVAL if schedules_complete and self.vasa_data_complete else INCOMPLETE_UPDATE_INTERVAL
-        )
+        self.update_interval = UPDATE_INTERVAL if self.vasa_data_complete else INCOMPLETE_UPDATE_INTERVAL
         if schedules is None:
             raise UpdateFailed(self.vasa_error or "VASA collection schedule was unavailable")
         updated = datetime.now(UTC)
@@ -175,3 +180,23 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
             }
         )
         return schedules
+
+    async def _async_fallback_schedules(self, schedules: dict[str, Schedule], schedule_sources: dict[str, str]) -> None:
+        """Fill containers without VASA dates from the public Ecoservice report."""
+        missing = [inventory for inventory, schedule in schedules.items() if not schedule.dates]
+        if not missing:
+            return
+        try:
+            fallback = await self.ecoservice_api.schedules(
+                self.entry.data[CONF_MUNICIPALITY], self.entry.data[CONF_ADDRESS], missing
+            )
+        except EcoserviceApiError as err:
+            _LOGGER.warning("Ecoservice schedule fallback failed; cached fallback dates were retained: %s", err)
+            cached = self.data or {}
+            fallback = {
+                inventory: cached[inventory]
+                for inventory in missing
+                if inventory in cached and self.schedule_sources.get(inventory) == SOURCE_URL
+            }
+        schedules.update(fallback)
+        schedule_sources.update(dict.fromkeys(missing, SOURCE_URL))

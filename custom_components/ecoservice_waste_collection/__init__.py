@@ -7,16 +7,27 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import CONF_VASA_PASSWORD, CONF_VASA_USERNAME, DOMAIN, PLATFORMS
+from .const import CONF_CONTAINERS, CONF_VASA_PASSWORD, CONF_VASA_USERNAME, DOMAIN, PLATFORMS
 from .coordinator import EcoserviceCoordinator
+from .models import WasteType, selected_waste_types
 from .vasa_api import VasaApi
 
 type EcoserviceConfigEntry = ConfigEntry[EcoserviceCoordinator]
 
+# Per-waste-type sensors that version 2 created even without a matching container.
+LEGACY_WASTE_SENSOR_SLUGS = {WasteType.PAPER: "paper", WasteType.GLASS: "glass", WasteType.MIXED: "mixed_waste"}
+LEGACY_WASTE_SENSOR_UNIQUE_IDS = (
+    "next_{slug}_collection_date",
+    "this_year_{slug}_weight",
+    "last_{slug}_weight",
+    "last_{slug}_service_status",
+    "last_{slug}_collection_date",
+)
+
 
 async def async_migrate_entry(hass: HomeAssistant, entry: EcoserviceConfigEntry) -> bool:
+    registry = er.async_get(hass)
     if entry.version < 2:
-        registry = er.async_get(hass)
         legacy_entities = (
             (Platform.BINARY_SENSOR, f"{entry.entry_id}_ecoservice_api_connection"),
             (Platform.SENSOR, f"{entry.entry_id}_last_update_from_ecoservice"),
@@ -25,6 +36,16 @@ async def async_migrate_entry(hass: HomeAssistant, entry: EcoserviceConfigEntry)
             if entity_id := registry.async_get_entity_id(platform, DOMAIN, unique_id):
                 registry.async_remove(entity_id)
         hass.config_entries.async_update_entry(entry, version=2)
+    if entry.version < 3:
+        selected_types = selected_waste_types(entry.data[CONF_CONTAINERS])
+        for waste_type, slug in LEGACY_WASTE_SENSOR_SLUGS.items():
+            if waste_type in selected_types:
+                continue
+            for template in LEGACY_WASTE_SENSOR_UNIQUE_IDS:
+                unique_id = f"{entry.entry_id}_{template.format(slug=slug)}"
+                if entity_id := registry.async_get_entity_id(Platform.SENSOR, DOMAIN, unique_id):
+                    registry.async_remove(entity_id)
+        hass.config_entries.async_update_entry(entry, version=3)
     return True
 
 
