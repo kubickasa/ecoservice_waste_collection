@@ -12,6 +12,7 @@ class WasteType(StrEnum):
     MIXED = "mixed"
     PAPER = "paper"
     GLASS = "glass"
+    GREEN = "green"
     UNKNOWN = "unknown"
 
 
@@ -19,6 +20,7 @@ WASTE_NAMES = {
     WasteType.MIXED: "Bendrosios atliekos",
     WasteType.PAPER: "Popieriaus atliekos",
     WasteType.GLASS: "Stiklo atliekos",
+    WasteType.GREEN: "Žaliosios atliekos",
     WasteType.UNKNOWN: "Nežinomos atliekos",
 }
 
@@ -32,8 +34,26 @@ def waste_type_from_inventory(value: str) -> WasteType:
     match = re.search(r"[A-Za-z]", value or "")
     if not match:
         return WasteType.UNKNOWN
-    return {"L": WasteType.MIXED, "P": WasteType.PAPER, "S": WasteType.GLASS}.get(
+    return {"L": WasteType.MIXED, "P": WasteType.PAPER, "S": WasteType.GLASS, "Z": WasteType.GREEN}.get(
         match.group().upper(), WasteType.UNKNOWN
+    )
+
+
+def selected_waste_types(inventories: Iterable[str]) -> set[WasteType]:
+    return {waste_type_from_inventory(inventory) for inventory in inventories}
+
+
+def history_waste_types(
+    inventories: Iterable[str],
+    schedule_sources: Mapping[str, str],
+    histories: Mapping[str, tuple[CollectionRecord, ...]],
+    history_source: str,
+) -> set[WasteType]:
+    """Return waste types with a container scheduled by the history source or with known history."""
+    return selected_waste_types(
+        inventory
+        for inventory in inventories
+        if schedule_sources.get(inventory) == history_source or histories.get(inventory)
     )
 
 

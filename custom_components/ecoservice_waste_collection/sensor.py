@@ -14,10 +14,12 @@ from .models import (
     WASTE_NAMES,
     WasteType,
     days_until,
+    history_waste_types,
     latest_collection_record,
     latest_serviced_record,
     next_collection,
     next_collection_for_waste,
+    selected_waste_types,
     yearly_serviced_weight,
 )
 
@@ -25,27 +27,45 @@ WASTE_SENSOR_TYPES = (
     (WasteType.PAPER, "paper"),
     (WasteType.GLASS, "glass"),
     (WasteType.MIXED, "mixed_waste"),
+    (WasteType.GREEN, "green"),
 )
 WASTE_SENSOR_NAMES = {
     WasteType.PAPER: "popieriaus atliekų",
     WasteType.GLASS: "stiklo atliekų",
     WasteType.MIXED: "bendrųjų atliekų",
+    WasteType.GREEN: "žaliųjų atliekų",
 }
 
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: EcoserviceConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    entities = [NextCollectionDateSensor(entry), VasaLastUpdateSensor(entry), VasaLastCollectionSensor(entry)]
-    entities.extend(
-        NextWasteTypeCollectionDateSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES
+    coordinator = entry.runtime_data
+    inventories = entry.data[CONF_CONTAINERS]
+    selected_types = selected_waste_types(inventories)
+    history_types = history_waste_types(
+        inventories, coordinator.schedule_sources, coordinator.histories, f"{VASA_BASE_URL}/orders"
     )
-    entities.extend(EcoserviceSensor(entry, inventory) for inventory in entry.data[CONF_CONTAINERS])
-    entities.extend(VasaYearWeightSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
-    entities.extend(VasaLastWeightSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
-    entities.extend(VasaLastServiceStatusSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
-    entities.extend(VasaLastCollectionDateSensor(entry, waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES)
-    entities.append(VasaPayableAmountSensor(entry))
+    waste_sensor_types = [(waste_type, slug) for waste_type, slug in WASTE_SENSOR_TYPES if waste_type in selected_types]
+    history_sensor_types = [
+        (waste_type, slug) for waste_type, slug in waste_sensor_types if waste_type in history_types
+    ]
+    entities = [NextCollectionDateSensor(entry), VasaLastUpdateSensor(entry)]
+    entities.extend(
+        NextWasteTypeCollectionDateSensor(entry, waste_type, slug) for waste_type, slug in waste_sensor_types
+    )
+    entities.extend(EcoserviceSensor(entry, inventory) for inventory in inventories)
+    if history_sensor_types:
+        entities.append(VasaLastCollectionSensor(entry))
+        entities.extend(VasaYearWeightSensor(entry, waste_type, slug) for waste_type, slug in history_sensor_types)
+        entities.extend(VasaLastWeightSensor(entry, waste_type, slug) for waste_type, slug in history_sensor_types)
+        entities.extend(
+            VasaLastServiceStatusSensor(entry, waste_type, slug) for waste_type, slug in history_sensor_types
+        )
+        entities.extend(
+            VasaLastCollectionDateSensor(entry, waste_type, slug) for waste_type, slug in history_sensor_types
+        )
+        entities.append(VasaPayableAmountSensor(entry))
     async_add_entities(entities)
 
 
