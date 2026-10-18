@@ -205,7 +205,7 @@ class VasaLastCollectionSensor(EcoserviceEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return super().available and self.coordinator.vasa_available
+        return super().available and self.coordinator.vasa_history_data_available
 
     @property
     def latest(self):
@@ -253,7 +253,7 @@ class VasaYearWeightSensor(EcoserviceEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return super().available and self.coordinator.vasa_available
+        return super().available and self.coordinator.vasa_history_data_available
 
     @property
     def native_value(self) -> float:
@@ -287,7 +287,7 @@ class VasaLastWeightSensor(EcoserviceEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return super().available and self.coordinator.vasa_available
+        return super().available and self.coordinator.vasa_history_data_available
 
     @property
     def latest(self):
@@ -322,7 +322,7 @@ class VasaLastCollectionDateSensor(EcoserviceEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return super().available and self.coordinator.vasa_available
+        return super().available and self.coordinator.vasa_history_data_available
 
     @property
     def latest(self):
@@ -360,7 +360,7 @@ class VasaLastServiceStatusSensor(EcoserviceEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return super().available and self.coordinator.vasa_available
+        return super().available and self.coordinator.vasa_history_data_available
 
     @property
     def latest(self):
@@ -409,7 +409,7 @@ class VasaPayableAmountSensor(EcoserviceEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return super().available and self.coordinator.vasa_billing_available
+        return super().available and self.coordinator.vasa_billing_data_available
 
     @property
     def native_value(self) -> float:
