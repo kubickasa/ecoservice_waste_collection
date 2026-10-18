@@ -12,7 +12,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import (
     CONF_CONTAINERS,
     DOMAIN,
-    INCOMPLETE_UPDATE_INTERVAL,
     UPDATE_INTERVAL,
     VASA_BASE_URL,
     VASA_HISTORY_LIMIT,
@@ -47,6 +46,9 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
         self.vasa_available = False
         self.vasa_calendar_available = False
         self.vasa_billing_available = False
+        self.vasa_history_data_available = False
+        self.vasa_calendar_data_available = False
+        self.vasa_billing_data_available = False
         self.vasa_connected = False
         self.vasa_error: str | None = None
         self.vasa_data_complete = False
@@ -72,6 +74,7 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
         }
         if vasa_schedules:
             self.data = vasa_schedules
+            self.vasa_calendar_data_available = True
         self.schedule_sources = {key: vasa_source for key in vasa_schedules}
         self.histories = {
             key: tuple(
@@ -82,15 +85,18 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
             )
             for key, values in cached.get("histories", {}).items()
         }
+        self.vasa_history_data_available = "histories" in cached
         self.payable_invoices = tuple(
             PayableInvoice(item["invoice_number"], float(item["amount"])) for item in cached.get("payable_invoices", [])
         )
+        self.vasa_billing_data_available = "payable_invoices" in cached
 
     async def _async_update_data(self) -> dict[str, Schedule]:
         inventories = list(self.entry.data[CONF_CONTAINERS])
         schedules: dict[str, Schedule] | None = None
         schedule_source = f"{VASA_BASE_URL}/orders"
         schedule_sources = {inventory: schedule_source for inventory in inventories}
+        history_succeeded = False
         vasa_succeeded = False
         vasa_errors: list[str] = []
         try:
@@ -98,6 +104,9 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
             self.histories = {key: tuple(values[:VASA_HISTORY_LIMIT]) for key, values in histories.items()}
             self.vasa_available = True
             self.vasa_calendar_available = True
+            self.vasa_history_data_available = True
+            self.vasa_calendar_data_available = True
+            history_succeeded = True
             vasa_succeeded = True
             schedules = {
                 inventory: Schedule(
@@ -114,6 +123,7 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
         try:
             self.payable_invoices = await self.vasa_api.payable_invoices()
             self.vasa_billing_available = True
+            self.vasa_billing_data_available = True
             vasa_succeeded = True
         except VasaApiError as err:
             self.vasa_billing_available = False
@@ -128,16 +138,17 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
             and schedules is not None
             and schedules_have_upcoming_collections(schedules, inventories, date.today())
         )
-        schedules_complete = schedules is not None and schedules_have_upcoming_collections(
-            schedules, inventories, date.today()
-        )
-        self.update_interval = (
-            UPDATE_INTERVAL if schedules_complete and self.vasa_data_complete else INCOMPLETE_UPDATE_INTERVAL
-        )
+        self.update_interval = UPDATE_INTERVAL
         if schedules is None:
-            raise UpdateFailed(self.vasa_error or "VASA collection schedule was unavailable")
+            if self.data:
+                schedules = self.data
+                schedule_sources = dict(self.schedule_sources)
+                _LOGGER.warning("Using cached VASA collection data after refresh failure")
+            else:
+                raise UpdateFailed(self.vasa_error or "VASA collection schedule was unavailable")
         updated = datetime.now(UTC)
-        self.last_successful_update = updated
+        if history_succeeded:
+            self.last_successful_update = updated
         if vasa_succeeded:
             self.vasa_last_successful_update = updated
         self.schedule_sources = schedule_sources

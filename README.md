@@ -112,14 +112,14 @@ The diagnostic entities show VASA status:
 - **VASA connection** reports whether at least one VASA data endpoint succeeded. Its attributes show history and billing endpoint states separately. Expired VASA access tokens are renewed automatically once before a request is marked failed.
 - **Last update from VASA** shows when VASA data was last retrieved successfully and applied to Home Assistant. The timestamp survives restarts and remains visible during connection failures.
 
-The integration retries every hour until every selected container has an upcoming VASA collection date and both VASA history and billing requests succeed. Once those conditions are met, it returns to the normal 24-hour interval. A genuinely absent collection or weight record does not keep the integration in hourly retry mode.
+- VASA is refreshed every 24 hours. A temporary endpoint failure is reported by the connection diagnostic while the other entities continue showing the last successfully cached values.
 - Up to 100 locally cached collection-history records per selected container.
 
 Exact entity IDs are assigned by Home Assistant and may include an address or device prefix. Unique IDs remain stable for a config entry.
 
 ## Data refresh
 
-VASA data is refreshed every **24 hours**, or every hour while required data is incomplete. A manual entity update or integration reload can request an earlier refresh. The last successfully retrieved VASA results are stored in Home Assistant's local storage and retained when VASA is temporarily unavailable.
+VASA data is refreshed every **24 hours**. A manual entity update or integration reload can request an earlier refresh. The last successfully retrieved VASA results are stored in Home Assistant's local storage and remain available when VASA is temporarily unavailable. The **VASA connection** diagnostic exposes the live endpoint error and indicates which cached data groups are available.
 
 The public Microsoft Power BI Publish-to-web report used by the Ecoservice schedules page is contacted only during initial configuration to discover container inventory numbers. It is not contacted by normal background refreshes.
 
@@ -146,7 +146,7 @@ That state means no all-day collection event is active today. Open Home Assistan
 - Confirm the same credentials work at [VASA self-service](https://savitarna.vasa.lt/).
 - Accounts that require a government-gateway login or additional two-factor verification are not supported.
 - Verify that the selected inventory numbers exist in the VASA account and that VASA provides a successful (`Aptarnautas`) record with a weight.
-- Temporary VASA failures retain cached values but mark the affected sensors unavailable until a successful refresh.
+- Temporary VASA failures retain cached values and keep previously populated sensors available. Check the **VASA connection** diagnostic for the current endpoint error.
 
 ### Reporting a problem
 
