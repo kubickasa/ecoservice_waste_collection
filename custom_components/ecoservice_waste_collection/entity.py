@@ -11,6 +11,11 @@ from .coordinator import EcoserviceCoordinator
 class EcoserviceEntity(CoordinatorEntity[EcoserviceCoordinator]):
     _attr_has_entity_name = True
 
+    @property
+    def available(self) -> bool:
+        """Keep entities available while cached schedule data exists."""
+        return bool(self.coordinator.data)
+
     def __init__(self, entry: EcoserviceConfigEntry) -> None:
         super().__init__(entry.runtime_data)
         self.entry = entry

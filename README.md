@@ -119,7 +119,7 @@ Exact entity IDs are assigned by Home Assistant and may include an address or de
 
 ## Data refresh
 
-VASA data is refreshed every **24 hours**. A manual entity update or integration reload can request an earlier refresh. The last successfully retrieved VASA results are stored in Home Assistant's local storage and remain available when VASA is temporarily unavailable. The **VASA connection** diagnostic exposes the live endpoint error and indicates which cached data groups are available.
+VASA data is refreshed every **24 hours**. A manual entity update or integration reload can request an earlier refresh. The last successfully retrieved VASA results are stored in Home Assistant's local storage and remain available when VASA is temporarily unavailable or a refresh fails unexpectedly. The **VASA connection** diagnostic exposes the live endpoint error and indicates which cached data groups are available.
 
 The public Microsoft Power BI Publish-to-web report used by the Ecoservice schedules page is contacted only during initial configuration to discover container inventory numbers. It is not contacted by normal background refreshes.
 
