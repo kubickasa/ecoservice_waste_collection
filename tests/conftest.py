@@ -8,4 +8,5 @@ PACKAGE = "custom_components.ecoservice_waste_collection"
 if PACKAGE not in sys.modules:
     module = types.ModuleType(PACKAGE)
     module.__path__ = [str(Path(__file__).parents[1] / "custom_components" / "ecoservice_waste_collection")]
+    module.EcoserviceConfigEntry = object
     sys.modules[PACKAGE] = module
