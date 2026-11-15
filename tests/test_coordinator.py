@@ -2,12 +2,13 @@ from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from custom_components.ecoservice_waste_collection.const import CONF_CONTAINERS, UPDATE_INTERVAL
 from custom_components.ecoservice_waste_collection.coordinator import EcoserviceCoordinator
 from custom_components.ecoservice_waste_collection.models import Container, Schedule, WasteType
-from custom_components.ecoservice_waste_collection.vasa_api import VasaApiError
+from custom_components.ecoservice_waste_collection.vasa_api import VasaApiError, VasaAuthenticationError
 
 
 class FailingVasaApi:
@@ -16,6 +17,14 @@ class FailingVasaApi:
 
     async def payable_invoices(self):
         raise VasaApiError("temporary billing failure")
+
+
+class AuthenticationFailingVasaApi:
+    async def histories_and_calendars(self, inventories):
+        raise VasaAuthenticationError("credentials rejected")
+
+    async def payable_invoices(self):
+        raise AssertionError("billing must not be queried after authentication fails")
 
 
 class MemoryStore:
@@ -77,4 +86,13 @@ async def test_first_refresh_failure_without_cache_still_fails():
     coordinator = make_coordinator(None)
 
     with pytest.raises(UpdateFailed):
+        await coordinator._async_update_data()
+
+
+@pytest.mark.asyncio
+async def test_authentication_failure_starts_home_assistant_reauthentication():
+    coordinator = make_coordinator(None)
+    coordinator.vasa_api = AuthenticationFailingVasaApi()
+
+    with pytest.raises(ConfigEntryAuthFailed):
         await coordinator._async_update_data()

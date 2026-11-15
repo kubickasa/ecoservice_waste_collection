@@ -16,7 +16,7 @@ Waste Collection Ecoservice Lithuania is a Home Assistant custom integration for
 - A diagnostic VASA connection status.
 - VASA sensors for the latest collection date, latest collected weight, yearly weight, and payable amount.
 - Upcoming dates from each selected container's own VASA calendar.
-- Hourly refresh while source data is incomplete, then daily refresh, with local caching of the last successfully retrieved data.
+- Daily refresh with local caching of the last successfully retrieved data.
 - English and Lithuanian configuration-flow translations.
 
 Supported country: **Lithuania (`LT`)**.

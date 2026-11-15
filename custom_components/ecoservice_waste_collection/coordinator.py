@@ -6,6 +6,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -25,7 +26,7 @@ from .models import (
     schedules_have_upcoming_collections,
     waste_type_from_inventory,
 )
-from .vasa_api import VasaApi, VasaApiError
+from .vasa_api import VasaApi, VasaApiError, VasaAuthenticationError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -115,6 +116,8 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
                 )
                 for inventory in inventories
             }
+        except VasaAuthenticationError as err:
+            raise ConfigEntryAuthFailed("VASA credentials were rejected") from err
         except VasaApiError as err:
             self.vasa_available = False
             self.vasa_calendar_available = False
@@ -125,6 +128,8 @@ class EcoserviceCoordinator(DataUpdateCoordinator[dict[str, Schedule]]):
             self.vasa_billing_available = True
             self.vasa_billing_data_available = True
             vasa_succeeded = True
+        except VasaAuthenticationError as err:
+            raise ConfigEntryAuthFailed("VASA credentials were rejected") from err
         except VasaApiError as err:
             self.vasa_billing_available = False
             vasa_errors.append(f"billing: {err}")
